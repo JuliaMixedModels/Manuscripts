@@ -22,3 +22,32 @@ docs/site/
 # committed for packages, but should be committed for applications that require a static
 # environment.
 Manifest.toml
+
+
+
+**/.cache
+blockedcholesky/BlockedCholeskyMM_files/
+
+
+
+
+_files/
+.cache/
+blockedcholesky/BlockedCholeskyMM.tex
+blockedcholesky/ms.tex
+blockedcholesky/orcidlink.sty
+blockedcholesky/arxiv.sty
+blockedcholesky/jss.bst
+blockedcholesky/jss.cls
+blockedcholesky/jsslogo.jpg
+blockedcholesky/jss-draft.tex
+.jupyter_cache/
+scratch/
+.luarc.json
+BlockedCholeskyMM.quarto_ipynb
+
+/.luarc.json
+blockedcholesky/BlockedCholeskyMM-jss.tex
+blockedcholesky/BlockedCholeskyMM-arxiv.tex
+blockedcholesky/BlockedCholeskyMM+arxiv.pdf
+blockedcholesky/BlockedCholeskyMM+jss.pdf
