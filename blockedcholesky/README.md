@@ -5,7 +5,7 @@
 
 - Install required dependencies by running:
    ```bash
-    $ julia --project=@. -e "import Pkg; Pkg.instantiate(pwd())"
+    $ julia --project=@. -e "import Pkg; Pkg.instantiate()"
    ```
 - Generate the JSS formatted preview using:
     ```bash
