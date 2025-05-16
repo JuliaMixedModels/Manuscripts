@@ -47,7 +47,7 @@ scratch/
 BlockedCholeskyMM.quarto_ipynb
 
 /.luarc.json
-blockedcholesky/BlockedCholeskyMM-jss.tex
-blockedcholesky/BlockedCholeskyMM-arxiv.tex
+blockedcholesky/BlockedCholeskyMM+jss.tex
+blockedcholesky/BlockedCholeskyMM+arxiv.tex
 blockedcholesky/BlockedCholeskyMM+arxiv.pdf
 blockedcholesky/BlockedCholeskyMM+jss.pdf
