@@ -1,0 +1,54 @@
+\usepackage{iftex}
+\ifPDFTeX
+    \usepackage[T1]{fontenc}
+    \usepackage[utf8]{inputenc}
+    \usepackage{textalpha}
+    \usepackage{bm}
+    \usepackage[scale=0.8]{FiraMono}
+    \usepackage{amsmath}
+    \newcommand\mbfZ{{\mathbf{Z}}}
+    \newcommand\mbfA{{\mathbf{A}}}
+    \newcommand\mbfI{{\mathbf{I}}}
+    \newcommand\mbfL{{\mathbf{L}}}
+    \newcommand\mbfO{{\mathbf{O}}}
+    \newcommand\mbfR{{\mathbf{R}}}
+    \newcommand\mbfS{{\mathbf{S}}}
+    \newcommand\mbfT{{\mathbf{T}}}
+    \newcommand\mbfX{{\mathbf{X}}}
+    \newcommand\mbfb{{\mathbf{b}}}
+    \newcommand\mbft{{\mathbf{t}}}
+    \newcommand\mbfu{{\mathbf{u}}}
+    \newcommand\mbfv{{\mathbf{v}}}
+    \newcommand\mbfy{{\mathbf{y}}}
+    \newcommand\mcN{{\bm{\mathcal{N}}}}
+    \newcommand\mcB{{\bm{\mathcal{B}}}}
+    \newcommand\mcU{{\bm{\mathcal{U}}}}
+    \newcommand\mcY{{\bm{\mathcal{Y}}}}
+    \newcommand\mbfLambda{{\boldsymbol{\Lambda}}}
+    \newcommand\mbfOmega{{\boldsymbol{\Omega}}}
+    \newcommand\mbfSigma{{\boldsymbol{\Sigma}}}
+    \newcommand\mbfbeta{{\boldsymbol{\beta}}}
+    \newcommand\mbftheta{{\boldsymbol{\theta}}}
+    \DeclareUnicodeCharacter{2500}{\textemdash} % needed  in lm summary output
+    \DeclareUnicodeCharacter{0302}{\kern-0.6em\raisebox{0.5ex}{\textasciicircum}} % to make \hat{\theta} work in one of the code listings
+    \DeclareUnicodeCharacter{22C5}{.}
+    % \DeclareUnicodeCharacter{22EE}{|} % this is diagonal dots, choose a better alt
+    \DeclareUnicodeCharacter{22F1}{*}
+    \DeclareUnicodeCharacter{2265}{$\geq$}
+    \DeclareUnicodeCharacter{251C}{$\vdash$} % ├
+    % linebreak added here to correct for https://github.com/JuliaLang/LinearAlgebra.jl/pull/1306
+    \DeclareUnicodeCharacter{2514}{\linebreak{}$\llcorner$} % └
+    \DeclareUnicodeCharacter{2303}{\^}
+\else
+    \usepackage{fontspec}
+    \setmonofont{JuliaMono}
+    \newcommand\mcN{{\mathbfcal{N}}}
+    \newcommand\mcB{{\mathbfcal{B}}}
+    \newcommand\mcU{{\mathbfcal{U}}}
+    \newcommand\mcY{{\mathbfcal{Y}}}
+    \usepackage{newunicodechar}
+    % linebreak added here to correct for https://github.com/JuliaLang/LinearAlgebra.jl/pull/1306
+    \newunicodechar{└}{\\└}
+\fi
+
+\usepackage{graphicx}

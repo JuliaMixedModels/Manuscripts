@@ -1,0 +1,80 @@
+> library(lme4, quietly = TRUE)
+> library(glmmTMB)
+> library(microbenchmark)
+> dat <- InstEval
+> dat$service <- as.numeric(dat$service) - 1  # convert to a 0/1 numeric vector
+> ctrl <- lmerControl(calc.derivs = FALSE)
+> form <- y ~ 1 + service + (1 | s) + (1 | d) + (1 | dept) + (0 + service | dept)
+> mlmer <- lmer(form, dat, REML = FALSE, control = ctrl)
+> summary(mlmer, correlation = FALSE)
+Linear mixed model fit by maximum likelihood  ['lmerMod']
+Formula: y ~ 1 + service + (1 | s) + (1 | d) + (1 | dept) + (0 + service |  
+    dept)
+   Data: dat
+Control: ctrl
+
+      AIC       BIC    logLik -2*log(L)  df.resid 
+ 237662.6  237727.0 -118824.3  237648.6     73414 
+
+Scaled residuals: 
+     Min       1Q   Median       3Q      Max 
+-2.99959 -0.74769  0.04009  0.77283  3.11345 
+
+Random effects:
+ Groups   Name        Variance Std.Dev.
+ s        (Intercept) 0.105295 0.32449 
+ d        (Intercept) 0.262425 0.51227 
+ dept     (Intercept) 0.002579 0.05079 
+ dept.1   service     0.023405 0.15299 
+ Residual             1.385009 1.17686 
+Number of obs: 73421, groups:  s, 2972; d, 1128; dept, 14
+
+Fixed effects:
+            Estimate Std. Error t value
+(Intercept)  3.27765    0.02350 139.463
+service     -0.05074    0.04399  -1.153
+> tmbmod <- glmmTMB(form, dat)
+> summary(tmbmod)
+ Family: gaussian  ( identity )
+Formula:          
+y ~ 1 + service + (1 | s) + (1 | d) + (1 | dept) + (0 + service |      dept)
+Data: dat
+
+      AIC       BIC    logLik -2*log(L)  df.resid 
+ 237662.6  237727.0 -118824.3  237648.6     73414 
+
+Random effects:
+
+Conditional model:
+ Groups   Name        Variance Std.Dev.
+ s        (Intercept) 0.10530  0.32449 
+ d        (Intercept) 0.26243  0.51228 
+ dept     (Intercept) 0.00258  0.05079 
+ dept.1   service     0.02340  0.15296 
+ Residual             1.38501  1.17686 
+Number of obs: 73421, groups:  s, 2972; d, 1128; dept, 14
+
+Dispersion estimate for gaussian family (sigma^2): 1.39 
+
+Conditional model:
+            Estimate Std. Error z value Pr(>|z|)    
+(Intercept)  3.27765    0.02351  139.39   <2e-16 ***
+service     -0.05074    0.04408   -1.15     0.25    
+---
+Signif. codes:  0 ‘***’ 0.001 ‘**’ 0.01 ‘*’ 0.05 ‘.’ 0.1 ‘ ’ 1
+> microbenchmark(
++   lmer = lmer(form, dat, REML = FALSE, control = ctrl),
++   glmmTMB = glmmTMB(form, dat), times = 6
++ )
+Unit: seconds
+    expr      min       lq     mean   median       uq      max neval cld
+    lmer 17.61183 17.61670 17.81537 17.78631 18.01708 18.07398     6  a 
+ glmmTMB 23.38106 23.47987 23.56080 23.52521 23.62934 23.82409     6   b
+> # R and package versions
+> R.version.string
+[1] "R version 4.5.0 (2025-04-11)"
+> packageVersion("lme4")
+[1] ‘1.1.37’
+> packageVersion("glmmTMB")
+[1] ‘1.1.11’
+> 

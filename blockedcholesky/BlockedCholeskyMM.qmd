@@ -1,0 +1,1170 @@
+---
+title: "Mixed-model Log-likelihood Evaluation Via a Blocked Cholesky Factorization"
+format:
+  jss-pdf+jss:
+    fig-width: 6
+    fig-height: 3.5
+    fig-dpi: 300
+    fig-format: pdf
+    keep-tex: true
+    include-in-header:
+      - file: texincludes.tex
+    highlight-style: atom-one
+    pdf-engine: xelatex
+  arxiv-pdf+arxiv:
+    fig-width: 6
+    fig-height: 3.5
+    fig-format: pdf
+    include-in-header:
+      - file: texincludes.tex
+    highlight-style: atom-one
+    pdf-engine: pdflatex
+    keep-tex: true
+    runninghead: "Mixed Models in Julia"
+author:
+  - name: Douglas Bates
+    email: dmbates@gmail.com
+    orcid: 0000-0001-8316-9503
+    affiliation:
+      - name: University of Wisconsin--Madison
+        city: University of Wisconsin--Madison
+        state: WI
+        url: https://www.wisc.edu
+        department: Department of Statistics
+  - name: Phillip M. Alday
+    email: phillip@phillipalday.com
+    orcid: 0000-0002-9984-5745
+    affiliation:
+      - name: Beacon Biosignals
+        city: Beacon Biosignals
+        url: https://beacon.bio
+  - name: Ajinkya H. Kokandakar
+    email: ajinkya@stat.wisc.edu
+    orcid: 0000-0001-6628-2272
+    affiliations:
+      - name: University of Wisconsin--Madison
+        city: University of Wisconsin--Madison
+        state: WI
+        url: https://www.wisc.edu
+        department: Department of Statistics
+monofont: JuliaMono
+date: last-modified
+date-format: |
+  DD MMMM YYYY [-- git #{{< git-rev short='true' >}}]
+abstract: |
+  @bates.maechler.etal:2015 described the evaluation of the profiled log-likelihood of a linear mixed-effects model by updating a sparse, symmetric positive-definite matrix and computing its Cholesky factor, as implemented in the [lme4]{.pkg} package for [R]{.proglang}.
+  Here we present enhancements to the derivation and theoretical presentation of the result and to its implementation using a blocked Cholesky factorization in the [MixedModels.jl]{.pkg} package for [Julia]{.proglang} [@Bezanson2017].
+  The gain in computational efficiency is primarily due to three factors:
+  (1) the new derivation allows us to compute the penalized residual sum of squares without computing the conditional estimates of the fixed-effects parameters and the conditional modes of the random effects at each optimization step,
+  (2) the blocked Cholesky representation and careful ordering of the random effects terms reduces the amount of "fill-in" that occurs during the Cholesky factorization, and
+  (3) the multiple dispatch feature of the [Julia]{.proglang} language allows us to use specialized algorithms for different kinds of matrices instead of relying on generic algorithms during the Cholesky factorization.
+  To show the effectiveness of the blocked Cholesky approach we use it to fit a linear mixed model to over 32 million ratings of movies in the MovieLens `ml-32m` [@Harper2016] data set.
+  The model incorporates random effects for over 200,000 movies and over 80,000 participants.
+  Further enhancements to these computational methods are suggested.
+keywords-formatted: [mixed-effects, linear mixed model, Cholesky factorization]
+
+bibliography: bibliography.bib
+execute:
+  cache: true
+engine: julia
+julia:
+  exeflags:
+    - -tauto
+    - --project=@.
+---
+
+## Introduction {#sec-intro}
+
+Mixed effects models are a rich class of statistical models frequently used when the measurement units exhibit grouping structures.
+They are especially useful when the data exhibit non-nested grouping, for instance when there are two or more unrelated grouping variables such as measurements taken on items and users [see @baayendavidsonbates2008a]; or partially nested groupings, for instance when measuring test scores for students over time when the students can change schools [see @fuhner2021age].
+There is a long history of computational tools for fitting mixed effects models, including the `PROC MIXED` procedure in [SAS]{.proglang}, and the [nlme]{.pkg}, [lme4]{.pkg} and more recently [glmmTMB]{.pkg} packages in the [R]{.proglang} ecosystem.
+The extensive use of these models is shown by the fact that @bates.maechler.etal:2015, which describes the methodology and use of [lme4]{.pkg}, is among the top 25 most-cited papers of the twenty-first century [@Pearson2025].
+We present [MixedModels.jl]{.pkg} a new implementation of mixed effects models in the [Julia]{.proglang} programming language.
+This implementation relies on two innovations, one analytical and the other computational.
+At the heart of [MixedModels.jl]{.pkg}, there is a new way of formulating the profiled log-likelihood evaluation that expresses this objective without requiring explicit evaluation of the conditional parameter estimates.
+On the computational level, the evaluation of the objective requires the Cholesky factor of a large, sparse, positive-definite symmetric matrix, as in [lme4]{.pkg}.
+This matrix has a blocked structure that is explicitly exploited in [MixedModels.jl]{.pkg} but not in [lme4]{.pkg}.
+More concretely, the Cholesky factor consists of dense and sparse blocks, and using specific algorithms to handle these blocks differently leads to more computationally efficient algorithms.
+We exploit the multiple dispatch feature of [Julia]{.proglang} to do exactly that -- use sparse matrix algorithms for the sparse blocks, and level 3 BLAS and LAPACK subroutines for the dense blocks.
+Together, these contributions allow us to fit linear mixed models to very large datasets.
+
+@bates.maechler.etal:2015 provided a formulation for linear mixed-effects models and showed how maximum likelihood estimates of the parameters in the model can be determined by optimizing a profiled objective function, which is negative twice the profiled log-likelihood.
+The term "profiled" refers to the fact that this objective is a function of some (but not all) of the parameters in the model.
+As shown in @bates.maechler.etal:2015, the profiled objective can be evaluated from the solution of a penalized least squares (PLS) problem.
+In this paper, we show that it is not necessary to evaluate the solution to the PLS problem explicitly when evaluating the profiled objective.
+The objective can be evaluated from a factorization that is an intermediate step in solving the PLS problem.
+
+The model matrix, $\mbfZ$, for the random effects in such models is defined in blocks according to the "grouping factors" for random-effects terms in the model formula.
+The blocked structure of $\mbfZ$ and of its cross-product matrix, $\mbfZ^\top\mbfZ$, (also called the Gram matrix of the columns of $\mbfZ$) is described in great detail in @bates.maechler.etal:2015[Section 2] when showing how a model formula and data frame create the structures used to evaluate the profiled objective.
+However, the implementation of the profiled log-likelihood evaluation in the [lme4]{.pkg} package for [R]{.proglang} is not explicitly based upon the blocks --- [lme4]{.pkg} uses a more general sparse Cholesky factorization as implemented in the [CHOLMOD]{.pkg} library [@10.1145/1391989.1391995].
+
+An important part in a general sparse Cholesky factorization, such as implemented in [CHOLMOD]{.pkg}, is determining a *fill-reducing permutation* of the rows and columns of the symmetric, positive-definite matrix to be factored.
+The main difference between the methods in [MixedModels.jl]{.pkg} and those in [lme4]{.pkg} is that in [MixedModels.jl]{.pkg} it is the blocks that are permuted, if necessary, rather than individual rows and columns.
+In other words, the particular structure of the blocks in the Gram matrix is exploited in [MixedModels.jl]{.pkg} rather than relying upon general sparse Cholesky techniques that are not able to exploit this structure.
+
+The structure of the blocks in the Gram matrix depends upon the number and types of random-effects terms in the model.
+A general and efficient implementation of the blocked Cholesky factorization requires the ability to define operations for many different combinations of specialized forms of matrices.
+[Julia]{.proglang} [@Bezanson2017] is an ideal environment for this type of calculation because of its efficient implementation of multiple dispatch, its just-in-time compilation, and its rich type system.
+
+The rest of the paper is organized as follows.
+In @sec-profiled we recap the derivation of the profiled log-likelihood from @bates.maechler.etal:2015, in a slightly different form from that paper, and show that the objective can be evaluated directly from the Cholesky factorization of an augmented positive-definite matrix.
+That is, explicit evaluation of the solution to the PLS problem is not necessary.
+In @sec-structure we use an example of a fitted mixed-effects model to illustrate our implementation of the blocked Cholesky factorization in [MixedModels.jl]{.pkg}.
+In @sec-application we use an example of a mixed-effects model fit to a large data set with partially crossed grouping factors for the random effects to examine how the compute time per evaluation of the objective and the memory footprint of the model depend on various dimensions of the model.
+We conclude with a few additional comments in @sec-further-comments followed by a short summary and discussion in @sec-summary.
+
+## Profiled log-likelihood of linear mixed-effects models {#sec-profiled}
+
+The types of linear mixed-effects models that can be fit by [lme4]{.pkg} or [MixedModels.jl]{.pkg} are based on two vector-valued random variables: the $q$-dimensional vector of random effects, $\mcB$, and the $n$-dimensional response vector, $\mcY$.
+The unconditional distribution of $\mcB$ and the conditional distribution of $\mcY$, given $\mcB=\mathbf{b}$, are defined as multivariate Gaussian distributions of the form
+$$
+\begin{aligned}
+(\mcY|\mcB=\mathbf{b})&\sim\mcN(\mbfX\mbfbeta+\mathbf{Z}\mathbf{b},\sigma^2\mbfI)\\
+\mcB&\sim\mcN(\mathbf{0},\mbfSigma_\theta)\ ,
+\end{aligned}
+$$ {#eq-LMMdistr}
+
+where $\mbfX$ is the $n\times p$ model matrix for the fixed-effects terms, $\mbfbeta$ is the $p$-dimensional fixed-effects parameter vector and $\mathbf{Z}$ is the $n\times q$ model matrix for the random effects.
+The $q\times q$ symmetric variance-covariance matrix $\mathrm{Var}(\mcB)=\mbfSigma_\theta$ depends on the *variance-component parameter vector* $\mbftheta$ through a lower triangular *relative covariance factor* $\mbfLambda_\theta$ as
+
+$$
+\mbfSigma_\theta=\sigma^2\mbfLambda_\theta\mbfLambda_\theta^\top\ .
+$$ {#eq-relcovfac}
+
+(Recall that the lower Cholesky factor is generally written $\mathbf{L}$.
+In this case the lower Cholesky factor contains parameters and is named with the corresponding Greek letter, $\mbfLambda$.)
+
+The matrices $\mbfZ$, $\mbfSigma_\theta$ and $\mbfLambda_\theta$ can be very large but have special sparsity structures, as described in @sec-structure.
+
+In many descriptions of linear mixed models, computational formulas are written in terms of the *precision matrix*, $\mbfSigma_\theta^{-1}$.
+Such formulas will become unstable as $\mbfSigma_\theta$ approaches singularity.
+And it can do so; singular (i.e. non-invertible) $\mbfSigma_\theta$ can and do occur in practice.
+Moreover, during the course of the numerical optimization by which the parameter estimates are determined, it is frequently the case that the log-likelihood or the REML criterion will need to be evaluated at values of $\mbftheta$ that produce a singular $\mbfSigma_\theta$.
+Because of this we will take care to use computational methods that can be applied even when $\mbfSigma_\theta$ is singular and are stable as $\mbfSigma_\theta$ approaches singularity.
+
+According to @eq-relcovfac, $\mbfSigma$ depends on both $\sigma$ and $\theta$, and we should write it as $\mbfSigma_{\sigma,\theta}$.
+However, we will blur that distinction and continue to write $\text{Var}(\mcB)=\mbfSigma_\theta$.
+
+Another technicality is that the *common scale parameter*, $\sigma$, could, in theory, be zero.
+However, the only way for its estimate, $\widehat{\sigma}$, to be zero is for the fitted values from the fixed-effects only, $\mbfX\widehat{\mbfbeta}$, to be exactly equal to the observed data.
+This occurs only with data that have been (incorrectly) simulated without error.
+In practice, we can safely assume that $\sigma>0$.
+However, the estimated $\mbfLambda_\theta$, like $\mbfSigma_\theta$, can be singular.
+
+The computational methods in [lme4]{.pkg} and in [MixedModels.jl]{.pkg} are based on $\mbfLambda_\theta$ and do not require evaluation of $\mbfSigma_\theta$.
+In fact, $\mbfSigma_\theta$ is explicitly evaluated only at the converged parameter estimates.
+
+To express the log likelihood without the precision matrix, we define the spherical random effects, $\mcU\sim\mcN(\mathbf{0},\sigma^2\mbfI_q)$, which in turn determine $\mcB$ as
+
+$$
+\mcB=\mbfLambda_\theta\mcU\ .
+$$ {#eq-sphericalre}
+
+Although it may seem more intuitive to write $\mcU$ as a linear transformation of $\mcB$, we cannot do that when $\mbfLambda_\theta$ is singular, which is why @eq-sphericalre is in the form shown.
+
+We can easily verify that @eq-sphericalre provides the desired distribution for $\mcB$.
+As a linear transformation of a multivariate Gaussian random variable, $\mcB$ will also be multivariate Gaussian with mean
+
+$$
+\mathbb{E}\left[\mcB\right]=
+\mathbb{E}\left[\mbfLambda_\theta\mcU\right]=
+\mbfLambda_\theta\,\mathbb{E}\left[\mcU\right]=
+\mbfLambda_\theta\mathbf{0}=\mathbf{0}\ ,
+$$
+
+and covariance matrix
+
+$$
+\text{Var}(\mcB)=
+\mbfLambda_\theta\text{Var}(\mcU)\mbfLambda_\theta^{\top}=
+\sigma^2\mbfLambda_\theta\mbfLambda_\theta^{\top}=\mbfSigma_\theta \ .
+$$
+
+Just as we concentrate on how $\mbftheta$ determines $\mbfLambda_\theta$, not $\mbfSigma_\theta$, we will concentrate on properties of $\mcU$ rather than $\mcB$.
+In particular, we now define the model according to the distributions
+
+$$
+\begin{aligned}
+(\mcY|\mcU=\mathbf{u})&\sim\mcN(\mathbf{Z}\mbfLambda_\theta\mathbf{u}+\mbfX\mbfbeta,\sigma^2\mbfI_n)\\
+\mcU&\sim\mcN(\mathbf{0},\sigma^2\mbfI_q)\ .
+\end{aligned}
+$$ {#eq-condygivenu}
+
+The joint density function for $\mcY$ and $\mcU$ is the product of the densities of the two distributions in @eq-condygivenu.
+That is
+
+$$
+f_{\mcY,\mcU}(\mbfy,\mathbf{u})=
+\frac{1}{\left(2\pi\sigma^2\right)^{(n+q)/2}}\exp
+\left(\frac{\left\|\mbfy-\mbfX\mbfbeta
+-\mathbf{Z}\mbfLambda_\theta\mathbf{u}\right\|^2+
+\left\|\mathbf{u}\right\|^2}{-2\sigma^2}\right)\ .
+$$ {#eq-yujointdensity}
+
+To evaluate the likelihood for the parameters, $\mbftheta$, $\mbfbeta$, and $\sigma^2$, given the observed response, $\mbfy$, we must evaluate the marginal distribution of $\mcY$, whose density is the integral of $f_{\mcY,\mcU}(\mbfy,\mathbf{u})$ with respect to $\mathbf{u}$.
+
+This evaluation can be simplified if we rewrite the *penalized sum of squared residuals*, $\left\|\mbfy-\mbfX\mbfbeta
+-\mathbf{Z}\mbfLambda_\theta\mathbf{u}\right\|^2+
+\left\|\mathbf{u}\right\|^2$, the numerator of the exponent in @eq-yujointdensity, as a quadratic form in $\mathbf{u}$, to isolate the dependence on $\mathbf{u}$
+
+$$
+\begin{aligned}
+r^2_\theta(\mathbf{u},\mbfbeta)
+&=
+\|\mbfy-\mbfX\mbfbeta-\mathbf{Z}\mbfLambda_\theta\mathbf{u}\|^2+\|\mathbf{u}\|^2 \\
+&=
+\left\|
+\begin{bmatrix}
+\mathbf{Z}\mbfLambda_\theta & \mbfX & \mbfy \\
+-\mbfI_q & \mathbf{0} & \mathbf{0}
+\end{bmatrix}
+\begin{bmatrix}
+-\mathbf{u} \\
+-\mbfbeta \\
+1
+\end{bmatrix}
+\right\|^2 \\
+&=
+\begin{bmatrix}
+-\mathbf{u} \\
+-\mbfbeta \\
+1
+\end{bmatrix}^{\top}
+\begin{bmatrix}
+\mbfLambda_\theta^{\top}\mathbf{Z}^{\top}\mathbf{Z}\mbfLambda_\theta+\mbfI & \mbfLambda_\theta^{\top}\mathbf{Z}^{\top}\mbfX & \mbfLambda_\theta^{\top}\mathbf{Z}^{\top}\mbfy \\
+\mbfX^{\top}\mathbf{Z}\mbfLambda_\theta & \mbfX^{\top}\mbfX & \mbfX^{\top}\mbfy \\
+\mbfy^{\top}\mathbf{Z}\mbfLambda_\theta & \mbfy^{\top}\mbfX & \mbfy^{\top}\mbfy
+\end{bmatrix}
+\begin{bmatrix}
+-\mathbf{u} \\
+-\mbfbeta \\
+1
+\end{bmatrix} \\
+&= \left\|
+\begin{bmatrix}
+\mbfR_{ZZ} & \mbfR_{ZX} & \mathbf{r}_{Zy}\\
+\mathbf{0} & \mbfR_{XX} & \mathbf{r}_{Xy}\\
+\mathbf{0} & \mathbf{0} & r_{yy}
+\end{bmatrix}
+\begin{bmatrix}
+-\mathbf{u} \\
+-\mbfbeta \\
+1
+\end{bmatrix}
+\right\|^2\\
+&= \| \mathbf{r}_{Zy}-\mbfR_{ZX}\mbfbeta-\mbfR_{ZZ}\mathbf{u} \|^2 +
+\| \mathbf{r}_{Xy}-\mbfR_{XX}\mbfbeta\|^2 + r_{yy}^2\ ,
+\end{aligned}
+$$ {#eq-penalized-rss}
+
+using the Cholesky factor of the blocked matrix,
+
+$$
+\begin{aligned}
+\mbfOmega_\theta&=
+\begin{bmatrix}
+\mbfLambda_\theta^{\top}\mathbf{Z^{\top}Z}\mbfLambda_\theta+\mbfI &
+\mbfLambda_\theta^{\top}\mathbf{Z^{\top}X} & \mbfLambda_\theta^{\top}\mathbf{Z^{\top}y} \\
+\mathbf{X^{\top}Z}\mbfLambda_\theta & \mathbf{X^{\top}X} & \mathbf{X^{\top}y} \\
+\mathbf{y^{\top}Z}\mbfLambda_\theta & \mathbf{y^{\top}X} & \mathbf{y^{\top}y}
+\end{bmatrix}\\
+& =
+\begin{bmatrix}
+\mbfR_{ZZ}^{\top} & \mathbf{0} & \mathbf{0} \\
+\mbfR_{ZX}^{\top} & \mbfR^{\top}_{XX} & \mathbf{0} \\
+\mathbf{r}_{Zy}^{\top} & \mathbf{r}^{\top}_{Xy} & r_{yy}
+\end{bmatrix}
+\begin{bmatrix}
+\mbfR_{ZZ} & \mbfR_{ZX} & \mathbf{r}_{Zy} \\
+\mathbf{0} & \mbfR_{XX} & \mathbf{r}_{Xy} \\
+\mathbf{0} & \mathbf{0} & r_{yy}
+\end{bmatrix}\ .
+\end{aligned}
+$$ {#eq-bigCholfac}
+
+(In practice we evaluate the blocks of the lower Cholesky factor, such as $\mbfL_{ZZ}=\mbfR_{ZZ}^{\top}$, of this matrix but the equations are slightly easier to write in terms of the upper Cholesky factor.)
+
+Note that the block in the upper left, $\mbfLambda_\theta^{\top}\mathbf{Z^{\top}Z}\mbfLambda_\theta+\mbfI$, is positive definite even when $\mbfLambda_\theta$ is singular, because
+
+$$
+\mathbf{u}^{\top}\left(\mbfLambda_\theta^{\top}\mathbf{Z^{\top}Z}\mbfLambda_\theta+\mbfI\right)\mathbf{u} = \left\|\mathbf{Z}\mbfLambda_\theta\mathbf{u}\right\|^2
++\left\|\mathbf{u}\right\|^2\ ,
+$$ {#eq-Cholfacupperleft}
+and the first term is non-negative while the second is positive if $\mathbf{u}\ne\mathbf{0}$.
+
+Thus, the triangular $\mbfR_{ZZ}$, with positive diagonal elements, can be evaluated and its determinant, $\left|\mbfR_{ZZ}\right|$, which is the product of its diagonal elements, is also positive.
+This determinant appears in the marginal density of $\mcY$, from which the likelihood of the parameters is evaluated.
+
+To evaluate the likelihood,
+
+$$
+L(\mbftheta,\mbfbeta,\sigma|\mbfy) = \int_\mathbf{u} f_{\mcY,\mcU}(\mbfy,\mathbf{u})\, d\mathbf{u}\ ,
+$$ {#eq-likelihood-abstract}
+
+we isolate the part of the joint density that depends on $\mathbf{u}$ and perform a change of variable
+
+$$
+\mathbf{v}=\mbfR_{ZZ}\mathbf{u}+\mbfR_{ZX}\mbfbeta-\mathbf{r}_{Zy} \ ,
+$$ {#eq-u-system}
+
+with the *Jacobian matrix*
+
+$$
+\frac{d\mbfv}{d\mbfu} = \mbfR_{ZZ}\ .
+$$
+
+From the properties of the multivariate Gaussian distribution
+
+$$
+\begin{aligned}
+\int_{\mathbf{u}}\frac{1}{(2\pi\sigma^2)^{q/2}}
+\exp\left(-\frac{\|\mbfR_{ZZ}\mathbf{u}+\mbfR_{ZX}\mbfbeta-\mathbf{r}_{Zy}\|^2}{2\sigma^2}\right)
+\,d\mathbf{u}\\
+\begin{aligned}
+&= \int_{\mathbf{v}}\frac{1}{(2\pi\sigma^2)^{q/2}}
+\exp\left(-\frac{\|\mathbf{v}\|^2}{2\sigma^2}\right)|\mbfR_{ZZ}|^{-1}\,d\mathbf{v}\\
+&=|\mbfR_{ZZ}|^{-1} \ ,
+\end{aligned}
+\end{aligned}
+$$ {#eq-likelihood-integral}
+
+from which we obtain the likelihood as
+
+$$
+L(\mbftheta,\mbfbeta,\sigma;\mbfy)=
+\frac{|\mbfR_{ZZ}|^{-1}}{(2\pi\sigma^2)^{n/2}}
+\exp\left(-\frac{r_{yy}^2 + \|\mbfR_{XX}(\mbfbeta-\widehat{\mbfbeta})\|^2}{2\sigma^2}\right)\ ,
+$$ {#eq-likelihood}
+
+where the conditional estimate, $\widehat{\mbfbeta}$, given $\mbftheta$, satisfies
+$$
+\mbfR_{XX}\widehat{\mbfbeta} = \mathbf{r}_{Xy}\ .
+$$
+
+Setting $\mbfbeta=\widehat{\mbfbeta}$
+and taking the logarithm provides the estimate of $\sigma^2$,
+given $\mbftheta$, as
+
+$$
+\widehat{\sigma^2}=\frac{r_yy^2}{n}\ ,
+$$ {#eq-sigma-hat}
+
+which gives the *profiled log-likelihood*,
+$\ell(\mbftheta|\mbfy)=\log L(\mbftheta,\widehat{\mbfbeta},\widehat{\sigma})$,
+on the deviance scale, as
+
+$$
+-2\ell(\mbftheta|\mbfy)=2\log(|\mbfR_{ZZ}|) +
+n\left(1+\log\left(\frac{2\pi r_{yy}^2(\mbftheta)}{n}\right)\right)\ .
+$$ {#eq-profiled-log-likelihood}
+
+One of the interesting aspects of this formulation is that it is not necessary to solve for the conditional estimate of $\mbfbeta$ or the conditional modes of the random effects when evaluating the log-likelihood.
+The two values needed for the log-likelihood evaluation, $2\log(|\mbfR_{ZZ}|)$ and $r_\mathbf{yy}^2$, are obtained directly from the diagonal elements of the Cholesky factor.
+
+Furthermore, $\mbfOmega_{\theta}$ and, from that, the Cholesky factor, $\mbfR_{\theta}$, and the objective to be optimized can be evaluated for a given value of $\mbftheta$ from the Gram matrix of the columns of $\mbfZ$, $\mbfX$ and $\mbfy$,
+
+$$
+\mathbf{A} = \begin{bmatrix}
+\mathbf{Z}^{\top}\mathbf{Z} & \mathbf{Z}^{\top}\mbfX & \mathbf{Z}^{\top}\mbfy \\
+\mbfX^{\top}\mathbf{Z} & \mbfX^{\top}\mbfX & \mbfX^{\top}\mbfy \\
+\mbfy^{\top}\mathbf{Z} & \mbfy^{\top}\mbfX & \mbfy^{\top}\mbfy
+\end{bmatrix}\ ,
+$$ {#eq-A}
+
+and $\mbfLambda_{\theta}$.
+
+In [MixedModels.jl]{.pkg} the `LinearMixedModel` struct contains a blocked representation of $\mathbf{A}$ in the `A` field and a similarly structured lower-triangular blocked array in the `L` field.
+Evaluation of the objective simply involves updating a representation of the relative covariance factor $\mbfLambda_\theta$ from $\mbftheta$, forming $\mbfOmega_\theta$ (@eq-bigCholfac) from $\mbfA$ and $\mbfLambda_\theta$ then evaluating its lower Cholesky factor $\mbfL_\theta$.
+
+In @eq-A the blocking structure is according to all the random effects, followed by the fixed-effects followed by the response.
+However, as described in @bates.maechler.etal:2015[Section 3], the structure of $\mbfZ$, $\mbfZ^{\top}\mbfZ$ and $\mbfLambda_\theta$ is further subdivided into blocks according to the random-effects terms in the model formula, which we cover in the next section.
+
+## Random-effects terms in mixed-model formulas {#sec-structure}
+
+The user interface in [MixedModels.jl]{.pkg} is intentionally similar to that of [lme4]{.pkg}.
+A model is specified, as described in @bates.maechler.etal:2015[section 2.1], by a formula of the form
+
+```julia
+@formula(resp ~ FEexpr + (REexpr1 | factor1) + (REexpr2 | factor2) + ...)
+```
+"where `FEexpr` is an expression determining the columns of the fixed-effects model matrix, $\mbfX$, and the random-effects terms, `(REexpr1 | factor1)`, `(REexpr2 | factor2)`, etc. together determine both the random-effects model matrix $\mbfZ$ and the structure of the relative covariance factor $\mbfLambda_\theta$."
+
+(In [Julia]{.proglang} a formula expression such as this must be enclosed in a call to the `@formula` macro.)
+
+The expression on the right hand side of the vertical bar, `|`, in a random-effects term is called the *grouping factor* for those random effects.
+
+### From formula to model matrices
+
+The process of converting a mixed-model formula for a data set into the random-effects model matrix, $\mbfZ$, the Gram matrix, $\mbfZ^{\top}\mbfZ$, and the mapping from the relative covariance parameter, $\mbftheta$, to the relative covariance factor, $\mbfLambda_\theta$, is described in considerable detail in @bates.maechler.etal:2015[Sections 2.2 and 2.3].
+In particular, Tables 3 and 4 of @bates.maechler.etal:2015 provide the dimensions and the names of some of the components of these matrices and should be kept close at hand when reading this section.
+For convenience, Table 3 from  @bates.maechler.etal:2015 has been reproduced with slight changes as @tbl-re-sizes in Appendix -@sec-re-dim.
+
+To recap some of the material in @bates.maechler.etal:2015[Sections 2.2 and 2.3], in a model with $k$ random-effects terms, an $n\times p_i$ model matrix $\mbfX_i, i=1,\dots,k$ is evaluated from the expression `REterm`$_i$ and the data.
+The $\mbfX_i, i=1,\dots,k$ are (implicitly) combined with the indicator matrices, $\mathbf{J}_i, i=1,\dots,k$ of the $i$th grouping factor to produce the sparse model matrix blocks $\mbfZ_i, i=1,\dots,k$.
+If $\ell_i, i = 1,\dots,k$ is the number of levels of the $i$th grouping factor then the total number of the random effects for each grouping factor is $q_i=\ell_i p_i, i=1,\dots,k$ with $q=\sum_{i=1}^k q_i$ being the total number of random effects in the model.
+
+Generally the $p_i, i=1,\dots,k$ are small.
+Random effects terms of the form `(1|g)`, i.e. $p_i=1$, are not uncommon.
+In such cases, called simple, scalar random-effects terms, the matrix $\mbfZ_i$ is exactly the indicator matrix $\mathbf{J}_i$ and its $\ell_i\times\ell_i$ Gram matrix, $\mbfZ_i^{\top}\mbfZ_i$, is diagonal with the incidence counts of the levels on the diagonal.
+
+The blocked derivation in @bates.maechler.etal:2015 carries over into the model representation in [MixedModels.jl]{.pkg} with one modification --- in [lme4]{.pkg} the (implicit) partitioning of $\mbfZ$ into $k$ vertical blocks is according to the random-effects terms in the formula, whereas in [MixedModels.jl]{.pkg} it is according to the grouping factors.
+If more than one random-effects terms have the same grouping factor they are amalgamated in the model representation.
+
+Making the number of blocks small reduces the complexity of the evaluation of the profiled likelihood while retaining simplicity in the factorization of the first column of blocks (see [@sec-one-one-block]).
+
+### An example using instructor evaluation data
+
+The `InstEval` dataset from the [lme4]{.pkg} package is reproduced as `insteval` in [MixedModels.jl]{.pkg}.
+(The [Julia]{.proglang} convention is to use lower-case for names of objects and camel-case for names of types and for package names.)
+It consists of nearly 75,000 evaluations (`y`) of instructors (`d` for *Dozent*, German for "instructor") at ETH-Zürich by students (`s`).
+Other covariates, such as the department (`dept`) that offered the course and whether or not it was a `service` course, are included.
+Further details are given on the [R]{.proglang} help page for `lme4::InstEval`.
+
+In [Julia]{.proglang} we attach the packages to be used, load the data set, convert it to a `DataFrame` and evaluate some descriptive statistics on its columns to produce @tbl-insteval-summary,
+which shows that a total of 2972 students evaluated a total of 1128 instructors in courses from 14 different departments.
+About 43% of the evaluations were from service courses.
+
+
+```{julia}
+#| output: false
+using AlgebraOfGraphics, CairoMakie, PrettyTables, Printf, SparseArrays, LinearAlgebra
+using Arrow, Chairmarks, CSV, DataFrames, MixedModels
+dat = DataFrame(MixedModels.dataset("insteval"))
+dat.service = float.(dat.service .== "Y")       # convert to 0/1 encoding
+sumry = describe(dat, :min, :max, :mean, :nunique, :eltype)
+```
+
+```{julia}
+#| echo: false
+#| output: asis
+#| caption: summary
+#| tbl-cap: Summary of the `insteval` dataset
+#| label: tbl-insteval-summary
+fmt_nothing = (v, i, j) -> isnothing(v) ? "-" : v
+pretty_table(
+  sumry,
+  formatters = (ft_round(2, [4]), fmt_nothing),
+  show_subheader = false, backend = Val(:latex))
+```
+
+```{julia}
+#| echo: false
+#| output: false
+# set up the environment
+using MKL_jll
+hostarch = Base.BinaryPlatforms.arch(Base.BinaryPlatforms.HostPlatform())
+@static if Sys.isapple() && hostarch == "aarch64"
+  using AppleAccelerate
+elseif MKL_jll.is_available()
+  using MKL
+end
+# override QuartoNotebookRunner https://github.com/PumasAI/QuartoNotebookRunner.jl/issues/294
+CairoMakie.activate!(; type="pdf")
+```
+
+We will use random effects to model the variation due to instructors and due to students, as we regard the individual levels of these factors as being samples from their respective populations.
+We will also use random effects to model the variation due to departments and due to possible department-to-department variation in the service-course effect.
+(Technically this study is more of a census of departments than a random sample but random effects are often used when the number of levels of the factor is moderate, to help stabilize the computation.)
+
+The model formula is chosen to illustrate certain aspects of the conversion from formula to representation.
+In particular, we choose independent random effects for `dept` and for `service` by `dept` to show that distinct terms with the same grouping factor will be amalgamated in the internal representation.
+
+```{julia}
+form = @formula(y ~ 1 + service + (1|d) + (1|s) + (1|dept) + (0 + service|dept))
+m1 = fit(MixedModel, form, dat, progress=false) # suppress display of a progress bar
+print(m1)
+```
+
+Notice that, in the formula, the random effects term for instructor, `(1|d)`, occurred before that for student, `(1|s)`.
+In the model the `s` term occurs first because the number of random effects from that term, 2972, is greater than that from `d`, 1128.
+Also the two terms for `dept` are amalgamated into a single term in the model.
+
+The optimization of the profiled objective required about 175 evaluations of the objective function and took about a second on a laptop computer, as shown in this benchmark using the `@be` macro from the [Chairmarks.jl]{.pkg} package.
+
+```{julia}
+@be fit($MixedModel, $form, $dat; progress=false)  seconds=8
+```
+
+The environment in which these benchmarks were performed is described in @sec-app-env.
+Note that we use the Apple Accelerate implementation of the BLAS/Lapack routines on computers with Apple M-series processors and Intel's MKL BLAS implementation on computers with x86_64 processors.
+In Julia hot-swapping BLAS implementations is as easy as loading the appropriate package, such as [AppleAccelerate.jl]{.pkg} or [MKL.jl]{.pkg}.
+
+Individual evaluations of the profiled objective, including installing a new covariance parameter vector, updating the blocked Cholesky factorization, and evaluating @eq-profiled-log-likelihood, takes a few milliseconds on the same laptop computer.
+
+```{julia}
+@be objective(updateL!(setθ!($m1, $(m1.θ))))
+```
+
+The random effects terms define scalar random effects for `s` and `d` and vector-valued random effects for `dept` in this model, as reflected in the data type of each of the `reterms` of the model
+
+```{julia}
+show([typeof(rt) for rt in m1.reterms])
+```
+
+In the notation of @bates.maechler.etal:2015[Section 2] the second parameter of each of these types is $p_i, i = 1,\dots,3$.
+
+The number of levels of the grouping factors are
+```{julia}
+show([length(rt.levels) for rt in m1.reterms])
+```
+
+In the notation of @bates.maechler.etal:2015[Section 2] these are $\ell_i, i=1,\dots,3$.
+
+Finally the number of columns in each of the $\mbfZ_i, i=1,\dots,3$ is
+
+```{julia}
+show([size(rt, 2) for rt in m1.reterms])
+```
+
+For a summary of the model component sizes see @tbl-re-sizes.
+
+The blocks of the augmented Gram matrix, $\mbfA$, and the lower Cholesky factor, $\mbfL_\theta=\mbfR^{\top}_\theta$, are summarized as
+
+```{julia}
+#| tbl-cap: Block Structure of the `A` matrix \label{tab:blk-descrip}
+#| tbl-cap-location: top
+BlockDescription(m1)
+```
+
+(Only the lower triangle of the symmetric matrix, $\mbfA$, is stored.)
+
+In the theoretical development the blocking structure of the Gram matrix, $\mbfA$, and the Cholesky factor (@eq-bigCholfac) is according to random effects, fixed effects and response.
+In practice the response vector, $\mbfy$, is concatenated (`hcat`) to the fixed effects model matrix, $\mbfX$, and the random effects model matrix, $\mbfZ$, is partitioned according to the grouping factors.
+
+In the block structure summary if a block of $\mbfL$ and its corresponding block of $\mbfA$ have the same structure, the name of that structure is given once.
+This is the case for all of the blocks except the [2,2] block, which is diagonal in $\mbfA$ but dense in $\mbfL$, the [2,3] block, which is sparse in $\mbfA$ but dense in $\mbfL$, and the [3,3] block, which is block-diagonal in $\mbfA$ and dense in $\mbfL$.
+
+As described in @bates.maechler.etal:2015[Section 3] the relative covariance factor, $\mbfLambda_\theta$ is block diagonal with the same blocking structure as the random effects parts of $\mbfA$ or $\mbfL$.
+The $i$th diagonal block, $i=1,\dots,k$, consists of $q_i$ repetitions on the diagonal of a $\ell_i\times\ell_i$ lower-triangular template matrix $\mbfT_i$.
+
+For a scalar random effects term (i.e. $\ell_i=1$) its block in $\mbfLambda_\theta$ is a multiple of the $q_i\times q_i$ identity matrix.
+The blocks of $\mbfLambda_\theta$ are never instantiated in the [MixedModels.jl]{.pkg} implementation. There is sufficient flexibility in the multiple dispatch model in [Julia]{.proglang} that pre-multiplication by $\mbfLambda_\theta^\top$ or post-multiplication by $\mbfLambda_\theta$ can be performed from the template matrices $\mbfT_i, i=1,\dots,k$ and the `refs` property of the grouping factor alone.
+
+The value of $\hat{\mbftheta}$ for model `m1` is
+
+```{julia}
+θ̂ = m1.θ
+show(θ̂)
+```
+
+which maps to the template matrices
+
+```{julia}
+m1.λ
+```
+
+### Special role of the [1,1] block {#sec-one-one-block}
+
+The reason for ordering the random-effects terms so that the [1,1] block of $\mbfA$ is as large as possible is because the diagonal or block diagonal structure of this block is preserved in the [1,1] block of $\mbfL$.
+To illustrate the importance of choosing the first block of the augmented matrix $\mbfA$, we fit the same model with (a) the [1,1] block corresponding to the random effect term for the instructor (`1 | d`) with 1128 levels, and (b) the [1,1] block corresponding to the random effect term for students (`(1 | s)` with 2972 levels).
+<!-- In model `m1` the first block of $\mbfA$ and of $\mbfL$ is diagonal and the first block of $\mbfLambda_\theta$ is a multiple of the identity. -->
+
+```{julia}
+#| echo: false
+#| label: fit-false
+m2 = LinearMixedModel(form, dat);
+```
+
+```{julia}
+#| echo: false
+#| label: fit-reorder
+m2.reterms[1:2] = m2.reterms[2:-1:1]; # swap elements 1 and 2
+
+A, L = MixedModels.createAL(m2.reterms, m2.Xymat); # recreate A, L
+
+copyto!(m2.A, A); # set A
+copyto!(m2.L, L); # set L
+```
+
+```{julia}
+#| echo: false
+refit!(m2; progress = false);
+```
+
+```{julia}
+#| echo: false
+#| fig-cap: Sparsity pattern of the augmented matrix $\mbfA$ when the order of the random effects is not carefully chosen (left) and when the order is carefully chosen (right).
+#| label: fig-a
+include("scripts/makiespy.jl")
+CairoMakie.activate!(; type="png")
+
+f = Figure()
+spyA(m2, f[1,1]; markersize = 5, colormap = :imola) # m2 is the slower model
+spyA(m1, f[1,2]; markersize = 5, colormap = :imola) # m1 is the slower model
+f
+```
+
+
+```{julia}
+#| echo: false
+#| fig-cap: Sparsity pattern of the lower triangular Cholesky factor when the order of the random effects is not carefully chosen (left) and when the order is carefully chosen (right).
+#| label: fig-blk
+
+second(x) = x[2]
+reszfast = second.(size.(m1.reterms))
+reszslow = second.(size.(m2.reterms))
+szl, _ = size(sparseL(m1; full = true))
+
+
+f = Figure(figure_padding = 60)
+spyL(m2, f[1,1]; markersize = 5, colormap = :imola) # m2 is the slower model
+spyL(m1, f[1,2]; markersize = 5, colormap = :imola) # m1 is the slower model
+colgap!(f.layout, 50.)
+
+
+x0, y0 = content(f[1,1]).scene.viewport.val.origin
+xw, yw = content(f[1,1]).scene.viewport.val.widths
+bracket!(
+  f.scene,
+  x0,  y0 + yw,
+  x0 + xw * (reszslow[1] / szl), y0 + yw,
+  text = string(reszslow[1])
+)
+
+bracket!(
+  f.scene,
+  x0 + xw * (reszslow[1] / szl),  y0 + yw,
+  x0 + xw * (reszslow[1] + reszslow[2]) / szl, y0 + yw,
+  text = string(reszslow[2])
+)
+
+
+
+bracket!(
+  f.scene,
+  x0,  y0 + yw,
+  x0, y0 + yw - yw * (reszslow[1] / szl),
+  text = string(reszslow[1]),
+  orientation = :down,
+)
+
+bracket!(
+  f.scene,
+  x0,  y0 + yw - yw * (reszslow[1] / szl),
+  x0, y0 + yw - yw * (reszslow[1] + reszslow[2]) / szl,
+  text = string(reszslow[2]),
+  orientation = :down
+)
+
+x0, y0 = content(f[1,2]).scene.viewport.val.origin
+xw, yw = content(f[1,2]).scene.viewport.val.widths
+bracket!(
+  f.scene,
+  x0,  y0 + yw,
+  x0 + xw * reszfast[1] / szl, y0 + yw,
+  text = string(reszfast[1])
+)
+
+bracket!(
+  f.scene,
+  x0 + xw * reszfast[1] / szl,  y0 + yw,
+  x0 + xw * (reszfast[1] + reszfast[2]) / szl, y0 + yw,
+  text = string(reszfast[2])
+)
+
+bracket!(
+  f.scene,
+  x0,  y0 + yw,
+  x0, y0 + yw - yw * reszfast[1] / szl ,
+  text = string(reszfast[1]),
+  orientation = :down
+)
+
+bracket!(
+  f.scene,
+  x0,  y0 + yw - yw * reszfast[1] / szl,
+  x0, y0 + yw - yw * (reszfast[1] + reszfast[2]) / szl,
+  text = string(reszfast[2]),
+  orientation = :down
+)
+
+f
+```
+```{julia}
+#| echo: false
+CairoMakie.activate!(; type="pdf");
+```
+
+<!-- ![Sparsity pattern of the augmented matrix $\mbfA$ when the order of the random effects is not carefully chosen (left) and when the order is carefully chosen (right).](lmm_A.png){#fig-a width=100% fig-pos='!h'}
+
+![Sparsity pattern of the lower triangular Cholesky factor when the order of the random effects is not carefully chosen (left) and when the order is carefully chosen (right).](lmm_side_by_s.png){#fig-blk width=100% fig-pos='!h'} -->
+
+@fig-a shows the non-zero elements of the augmented matrix, $\mbfA$, when (a) the first block corresponsds to the random effect terms for the instructor (`(1 | d)` with 1128 levels), and (b) the first block corresponds to the student (`(1 | s)` with 2972 levels), and @fig-blk shows the non-zero elements for the corresponding lower-triangular Cholesky factor.
+When performing a block-wise Cholesky factorization, the diagonal structure of the $[1,1]$ block from the input matrix is preserved in the Cholesky factor, but the diagonal structure for the subsequent diagonal blocks (e.g [2,2]) is not preserved.
+While the models are theoretically identical, the latter is computationally more efficient as the largest diagonal block preserves its structure.
+In fact, for the `insteval` dataset, the former order leads to approximately 4.5 million non-zero entries in the Cholesky factor, whereas choosing the random effect with the largest number of levels leads to a Cholesky factor with approximately 775,000 non-zero elements, which is an order of magnitude lower.
+This translates to an order of magnitude difference between the runtimes for fitting the two versions of the model.
+We demonstrate this with the `insteval` dataset in Appendix -@sec-app-re where fitting the model with the two blocks swapped is almost twenty times slower.
+
+Because the [1,1] block of $\mbfL$ is diagonal and the [1,1] block of $\mbfLambda_\theta$ is a multiple of the identity, the remaining blocks in the first column of blocks of $\mbfL$ will have exactly the same sparsity structure as the corresponding blocks of $\mbfA$.
+For example, the [2,1] block of $\mbfA$ is stored as a sparse matrix because only about 2% (73421) of the $2792\times1128=3352416$ elements of that matrix are non-zero.
+The [2,1] block of $\mbfL$ has exactly the same sparsity structure because each element of that block of $\mbfL$ is a scalar multiple of the corresponding element of that block of $\mbfA$.
+
+## Application to data from an observational study {#sec-application}
+
+We consider an observational study -- ratings of movies by users of [movielens.org](https://movielens.org) made available at the [grouplens.org download site](https://grouplens.org/datasets/movielens) [@Harper2016] as *MovieLens 32M Dataset* (`ml-32m`), consisting of roughly 32 million ratings of over 80,000 movies by over 200,000 users.
+The purpose of this section is to study which dimensions of the data have the greatest effect on the amount of memory used to represent the model and the time required to fit a model.
+To do so we use a simple model:
+
+```julia
+frm = @formula(rating ~ 1 + (1 | userId) + (1 | movieId))
+fit(LinearMixedModel, frm, dataset)
+```
+where `dataset` will be different subsets of the full data explained below.
+
+
+### Structure of the data
+
+
+The `ratings.csv` file in the `ml-32m.zip` file downloaded from the Grouplens site provides a table of about 32 million ratings with the corresponding movie number and user number.
+Creating a `ratings` data frame from this file and counting the number of ratings for each movie id provides the `movies` data frame with columns `movieId` and `mnrtngs`.
+Similarly counting the number of ratings for each user provides the `users` data frame with columns `userId` and `unrtngs`.
+Joining these two derived data frames with the original `ratings` data frame (on `movieId` and `userId`, respectively) allows for the `ratings` data frame to be subsetted according to a minimum number of ratings per user and/or per movie.
+
+```{julia}
+#| echo: false
+#| output: false
+movies = DataFrame(Arrow.Table("./data/moviesnratngs.arrow"))
+users = DataFrame(Arrow.Table("./data/usersnratngs.arrow"))
+```
+
+The data from this observational study are extremely unbalanced with respect to the grouping factors, `userId` and `movieId`, as shown in the empirical cumulative distribution function (ecdf) plots in @fig-nrtngsecdf.
+(Note that the horizontal axis in each panel is on a logarithmic scale.)
+
+```{julia}
+#| echo: false
+#| fig-cap: "Empirical distribution plots of the number of ratings per movie and per user.  The horizontal axes are on a logarithmic scale."
+#| label: fig-nrtngsecdf
+#| warning: false
+let
+  f = Figure(; size=(800, 300))
+  xscale = log10
+  xminorticksvisible = true
+  xminorgridvisible = true
+  yminorticksvisible = true
+  xminorticks = IntervalsBetween(10)
+  ylabel = "Relative cumulative frequency"
+  nrtngs = sort(movies.nrtngs)
+  ecdfplot(
+    f[1, 1],
+    nrtngs;
+    npoints=last(nrtngs),
+    axis=(
+      xlabel="Number of ratings per movie (logarithmic scale)",
+      xminorgridvisible,
+      xminorticks,
+      xminorticksvisible,
+      xscale,
+      ylabel,
+      yminorticksvisible,
+    ),
+  )
+  urtngs = sort(users.nrtngs)
+  ecdfplot(
+    f[1, 2],
+    urtngs;
+    npoints=last(urtngs),
+    axis=(
+      xlabel="Number of ratings per user (logarithmic scale)",
+      xminorgridvisible,
+      xminorticks,
+      xminorticksvisible,
+      xscale,
+      yminorticksvisible,
+    ),
+  )
+  f
+end
+```
+
+This selection of ratings was limited to users who had provided at least 20 ratings.
+
+In this collection of about 32 million ratings, over 22% of the movies are rated only once.
+The median number of ratings is 5 but the maximum is about 103,000.
+
+The ecdf plot of the number of ratings per user shows a similar pattern to that of the movies --- a few users with a very large number of ratings and many users with just a few ratings.
+
+For example, the minimum number of movies rated is 20 (due to the inclusion constraint); the median number of movies rated is around 70; but the maximum is over 33,000 (which is a lot of movies--over 30 years of 3 movies per day every day--if this user actually watched all of the movies they rated).
+
+Movies with very few ratings provide little information about overall trends or even about the movie being rated.
+We can imagine that the "shrinkage" of random effects for movies with just a few ratings pulls their adjusted rating strongly towards the overall average.
+
+Similarly, users who rate very few movies add little information, even about the movies that they rated, because there isn't sufficient information to contrast a specific rating with a typical rating for the user.
+
+One way of dealing with the extreme imbalance in the number of observations per user or per movie is to set a minimum number of ratings for a user or for a movie to be included in the data used to fit the model.
+
+### Models fit with lower bounds on ratings per user and per movie {#sec-lrgobsmods}
+
+We fit a simple model to this dataset using different thresholds on the number of ratings per movie and the number of ratings per user.
+These fits were performed on a desktop computer with a generous amount of memory (96 GiB) and using 8 threads and the Intel Math Kernel Library (MKL) for numerical linear algebra.
+The results are summarized in @tbl-sizespeed in Appendix -@sec-app-ml.
+
+```{julia}
+#| echo: false
+#| output: false
+sizespeed = CSV.read("./data/sizespeed.csv", DataFrame; downcast=true);
+```
+
+#### Dimensions of the model versus cut-off values
+
+As shown in the first panel of @fig-nratingsbycutoff, the number of ratings varies from a little over 21 million to 32 million.
+For this set of cutoff values, the user cutoff has more impact on the number of ratings in the reduced dataset than does the movie cutoff.
+
+```{julia}
+#| echo: false
+#| label: fig-nratingsbycutoff
+#| fig-cap: "Number of ratings (left) and movies (right) in reduced table by movie cutoff and by user cutoff"
+#| warning: false
+
+function siformat(x)
+    if x >= 1_000_000
+        val = x / 1_000_000
+        suffix = "M"
+    elseif x >= 1_000
+        val = x / 1_000
+        suffix = "K"
+    else
+        val = x
+        suffix = ""
+    end
+
+    return string(@sprintf("%g", val), suffix)
+end
+
+draw(
+  data(sizespeed) *
+  mapping(
+    :mc => "Minimum number of ratings per movie",
+    [:nratings => "Total number of ratings", :nmvie => "Number of movies in table"],
+    col = dims(1) => renamer(["Ratings", "Movies"]),
+    color = :uc => renamer([20 => "≥20 ratings", 40 => "≥40 ratings", 80 => "≥80 ratings"])  => "per user",
+  ) * visual(ScatterLines);
+  legend = (; position = :bottom, titleposition = :left),
+  axis = (; ytickformat = values -> [siformat(value) for value in values]),
+  figure=(; size=(800, 350))
+)
+```
+
+A glance at @tbl-sizespeed shows that the number of users is essentially a function of only the user cutoff.
+
+The second panel in @fig-nratingsbycutoff shows the similarly unsurprising result that the number of movies in the reduced table is essentially determined by the movie cutoff.
+
+#### Memory footprint of the model representation {#sec-lrgobsmemprint}
+
+@fig-memoryfootprint shows that the overall memory size (the "memory footprint") of the model representation depends primarily on the movie cutoff.  (There are three lines on @fig-memoryfootprint, corresponding to the three user cutoff values, but they are nearly coincident.)
+
+```{julia}
+#| echo: false
+#| fig-cap: Memory footprint of the model representation by minimum number of ratings per user and per movie.
+#| label: fig-memoryfootprint
+#| warning: false
+draw(
+  data(sizespeed) *
+  mapping(
+    :mc => "Minimum number of ratings per movie",
+    :modelsz => "Size of model object (GiB)",
+    color = :uc => renamer([20 => "≥20 ratings", 40 => "≥40 ratings", 80 => "≥80 ratings"])  => "per user",) *
+    visual(ScatterLines);
+    legend = (; position = :bottom, titleposition = :left),
+)
+```
+
+@fig-l22prop shows the dominance of the `L[2,2]` block, which is a dense lower triangular matrix, in the overall memory footprint of the model.
+When all the movies are included in the data to which the model is fit the total memory footprint is over 50 GiB, and over 90% of that memory is for `L[2,2]`.
+Even when requiring a minimum of 80 ratings per movie, `L[2,2]` accounts for about 40% of the memory footprint.
+
+```{julia}
+#| echo: false
+#| fig-cap: Proportion of memory footprint of the model in L[2,2] versus the overall model size (GiB).
+#| label: fig-l22prop
+#| warning: false
+draw(
+  data(transform!(sizespeed, [:L22sz, :modelsz] => ((x, y) -> x ./ y) => :L22prop)) *
+  mapping(
+    :modelsz => "Size of model object (GiB)",
+    :L22prop => "Proportion of memory footprint in L[2,2]",
+    color = :uc => renamer([20 => "≥20 ratings", 40 => "≥40 ratings", 80 => "≥80 ratings"])  => "per user",) *
+    visual(ScatterLines);
+    legend = (; position = :bottom, titleposition = :left),
+)
+```
+
+The fact that the `[2,2]` block of `A` is diagonal but the `[2,2]` block of `L` is dense lower-triangular is described as "fill-in" and leads to a somewhat unintuitive conclusion.
+The memory footprint of the model representation depends strongly on the number of movies, less strongly on the number of users and almost not at all on the number of ratings ([@fig-memoryfootprint]).
+
+Note that although the dimensions of the `L[2,1]` block are larger than those of the `L[2,2]` block its memory footprint is smaller than that of the `[2,2]` block, because it is stored as a sparse matrix.
+The matrix is about 98% zeros or, equivalently, a little over 2% nonzeros, which makes the sparse representation much smaller than the dense representation.
+Also, the number and positions of the non-zeros in `L[2,1]` is exactly the same as those of in `A[2,1]`.
+That is, there is no fill-in in the `[2,1]` block
+
+In a sense this is good news because the amount of storage required for the `[2,2]` block can be nearly cut in half by taking advantage of the fact that it is a triangular matrix.
+See @sec-RFP for further discussion on one approach using the *rectangular full packed format* [@lawn199].
+
+In general, for models with scalar random effects for two incompletely crossed grouping factors, the memory footprint depends strongly on the smaller of the number of levels of the grouping factors, less strongly on the larger number of levels, and almost not at all on the number of observations.
+
+#### Speed of log-likelihood evaluation
+
+The time required to fit a model to large data sets is dominated by the time required to evaluate the log-likelihood during the optimization of the parameter estimates.
+The time for one evaluation is given in the `time per eval` column of @tbl-sizespeed.
+Also given is the number of evaluations to convergence, `n eval`, and the total time to fit the model, `time`.
+The reason for considering `evtime` in addition to `fittime` and `n eval` is because the `time per eval` for one model, relative to other models, is reasonably stable across computers whereas `n eval`, and hence, `time`, can be affected by seemingly trivial variations in function values resulting from different implementations of low-level calculations, such as the BLAS (Basic Linear Algebra Subroutines).
+(Floating point arithmetic is not guaranteed to be associative and custom BLAS implementations may rearrange the order of operations when evaluating products and sums.)
+
+That is, we can't expect to reproduce `n eval` exactly when fitting the same model on different computers or with slightly different versions of software; but we can expect the pattern in `time per eval` with respect to the user and movie cutoffs to be reproducible.
+
+As shown in @fig-evtimevsl22 the evaluation time for the objective is predominantly a function of the size of the `[2,2]` block of `L`.
+
+
+```{julia}
+#| echo: false
+#| fig-cap: "Evaluation time for the objective (s) versus size of the [2,2] block of L (GiB)"
+#| label: fig-evtimevsl22
+#| warning: false
+draw(
+  data(sizespeed) *
+  mapping(
+    :L22sz => "Size of [2,2] block of L (GiB)",
+    :evtime => "Time for one evaluation of objective (s)",
+    color = :uc => renamer([20 => "≥20 ratings", 40 => "≥40 ratings", 80 => "≥80 ratings"])  => "per user",) *
+    visual(ScatterLines);
+    legend = (; position = :bottom, titleposition = :left),
+)
+```
+
+#### Reducing the amount of storage required {#sec-RFP}
+
+As shown in @fig-l22prop the `L[2,2]` block, when stored as a dense square matrix, can be a major contributor to the amount of storage required for the model.
+Because only the lower triangle of this dense square matrix is used, about half of this storage is never accessed.
+The rectangular full-packed (RFP) storage format [@lawn199] allows for a triangular matrix to be packed into (roughly) half the amount of storage required for the dense square matrix.
+The [RectangularFullPacked.jl]{.pkg} package allows access to this format in [Julia]{.proglang}.
+
+The savings in storage comes at the expense of a more complicated algorithm for mapping matrix coordinates to storage locations.
+
+The LAPACK implementation of the Cholesky factorization for the RFP format (`dpftrf`) is nearly as fast as the Cholesky factorization for a dense square matrix (`dpotrf`).
+However, the blocked Cholesky factorization requires several operations to evaluate the matrix to be passed to LAPACK's dense Cholesky factorization.
+The most expensive of these occurs after $\mbfL[2,1]$ and the diagonal matrix $\mbfLambda_2^\top\mbfA[2,2]\mbfLambda_2+\mbfI$ have been evaluated (in the storage for $\mbfL[2,2]$).
+It is described as a "symmetric rank-k update" and involves replacing the current $\mbfL[2,2]$ by $\mbfL[2,2]-\mbfL[2,1]\mbfL[2,1]^\top$.
+
+In practical examples, $\mbfL[2,1]$ is sparse and the update is performed by iterating over columns of $\mbfL[2,1]$.
+Each pair of nonzeros in each column of $\mbfL[2,1]$ generates a (scalar) update of one of the elements of $\mbfL[2,2]$ and this is where the more expensive indexing system in the RFP formulation (relative to storing a square dense matrix) takes its toll.
+Our current implementation using RFP takes three to four times as long to perform the rank-k update than to do the factorization to obtain $\mbfL[2,2]$.
+
+#### A[2,1] as a biadjacency matrix {#sec-biadjacency}
+
+In both of the examples we have considered, the first and second random-effects terms are simple scalar terms and each observation corresponds to a unique combination of levels of these two factors.
+For example, in the movielens data each rating corresponds to a unique combination of a user and a movie.
+
+In cases like these, the $\mbfA[2,1]$ matrix is the biadjacency matrix for a bipartite graph $(U,V,E)$ where the nodes $U$ are the individual users, the nodes $V$ are the individual movies and the edges, $E$, link a movie to a user who rated it.
+The total number of edges in the bipartite graph is $n$, the number of observations in the data set.
+Furthermore, the diagonal elements in the diagonal matrices $\mbfA[1,1]$ and $\mbfA[2,2]$ are the degrees of the vertices $U$ and $V$, respectively.
+They are also the column- and row-sums of $\mbfA[2,1]$.
+It may be possible to derive new computational approaches from these relationships using graph theory, an avenue  we hope to explore in future research.
+
+## Further Comments {#sec-further-comments}
+
+Throughout the discussion we have considered maximum likelihood estimation, which is the default estimation criterion.
+However, it is also possible to fit mixed models using the restricted maximum likelihood (REML) criterion by setting the optional argument `REML=true` in the call to the `fit` function.
+Briefly, the maximum likelihood estimates of the random effects variance components are biased.
+The REML estimates provide less biased estimates of variance components.
+For more details see [see @bates.maechler.etal:2015, Section 3.4].
+For instance:
+```{julia}
+mreml = fit(
+  MixedModel,
+  @formula(y ~ 1 + service + (1 | d) + (1 | s) + (1 | dept) + (0 + service | dept)),
+  dat,
+  REML = true,
+  progress=false
+)
+print(mreml)
+```
+
+The estimates obtained above are the same as those obtained from `lme4::lmer` function in [R]{.proglang}.
+
+We used the formula `y ~ 1 + service + (1 | d) + (1 | s) + (1 | dept) + (0 + service | dept)` to demonstrate that [MixedModels.jl]{.pkg} amalgamates random effects terms with the same grouping factor.
+In practice we can use the more concise formula: `y ~ 1 + service + (1 | d) + (1 | s) + zerocorr(service | dept)`.
+That is, the term `zerocorr(service | dept)` is equivalent to adding the two terms `(1 | dept) + (0 + service | dept)`, and the same as the [lme4]{.pkg} formula term `(1 + service || dept)`.
+
+Although we only demonstrated the fitting of linear mixed models, [MixedModels.jl]{.pkg} can also fit generalized linear mixed models including logistic, probit, poisson, and negative binomial models.
+To fit a probit model for instance we use the following syntax:
+```julia
+probmod = fit(MixedModel, frm, dt, Bernoulli(), ProbitLink())
+```
+where `frm` is a formula and `dt` is a dataset.
+Refer to the [MixedModels.jl]{.pkg} documentation for more details.
+
+## Summary and discussion {#sec-summary}
+
+We demonstrated how the [MixedModels.jl]{.pkg} package can be used to fit models with two distinct grouping factors (the `ml-32m` example) and three distinct grouping factors (`insteval` example).
+Fitting models with a single grouping factor or with more than three grouping factors is straightforward.
+
+The key contribution of [MixedModels.jl]{.pkg} is the new fitting procedure based on the augmented matrix $\mbfA$ (@eq-A) and the simplified formula for the profiled loglikelihood (@eq-profiled-log-likelihood).
+As a result of this simplification, we do not need to compute the conditional mode of the random effects ($\tilde{\mbfu}$ or $\tilde{\mbfb}$) for each evaluation of the objective function.
+This means we avoid roughly $O(n)$ computations at each evaluation as compared to previous implementations of mixed effects models, making the algorithm more scalable.
+In fact the conditional modes are computed only once at the converged values of the underlying parameter $\mbftheta$.
+Moreover, at each iteration we only need to use the augmented Gram matrix $\mbfA$ (@eq-A), which is a blocked, symmetric, sparse matrix of size $q + p + 1$ and the covariance parameter vector, $\mbftheta$, to form the blocked Cholesky factor, $\mbfL$.
+This update is performed in-place.
+
+Secondly, by rearranging the random effects terms so that the grouping factor with the greatest number of random effects corresponds to the $[1,1]$ block of the Cholesky factor, we reduce the "fill-in" of the Cholesky factor.
+These two changes together contribute to a substantial improvement in computational efficiency.
+
+Finally, the multiple dispatch feature of the [Julia]{.proglang} language allows us to use specialized algorithms for different kinds of matrices instead of relying on generic algorithms.
+This is relevant because we have both sparse and dense operations in different blocks of the Cholesky factor.
+By dispatching on the type of the block, we can create performant algorithms for each combination of matrix types that can occur.
+
+
+## Acknowledgments {.unnumbered}
+
+This research was supported  by the Center for Interdisciplinary Research, Bielefeld (ZiF) Cooperation Group "Statistical models for psychological and linguistic data".
+We would like to thank Ben Bolker for helpful comments on the manuscript.
+
+All figures were produced using the [AlgebraOfGraphics.jl]{.pkg} package with the [CairoMakie.jl]{.pkg} backend in the [Makie.jl]{.pkg} graphics system [@DanischKrumbiegel2021].
+Julius Krumbiegel and Anshul Singhvi provided invaluable help and feedback with [Makie.jl]{.pkg}.
+The plots in this work would not have been possible without them.
+Finally, we would like to thank the [Julia]{.proglang} community for bugfixes and answering our questions in the community support channels.
+
+## References {.unnumbered}
+
+:::{#refs}
+
+:::
+
+{{< pagebreak >}}
+
+<!-- https://github.com/quarto-dev/quarto-cli/discussions/4581 -->
+\appendix
+\renewcommand{\thefigure}{A\arabic{figure}}
+\renewcommand{\thetable}{A\arabic{table}}
+\setcounter{figure}{0}
+\setcounter{table}{0}
+
+## Appendix {.appendix}
+
+### Comparative benchmarks with lme4 and glmmTMB
+
+We benchmarked fitting the same model as in @sec-structure using the [lme4]{.pkg} and [glmmTMB]{.pkg} packages for [R]{.proglang}.
+
+```
+{{< include scripts/benchmarkoutput.txt >}}
+```
+
+As of writing, an attempt to fit the `ml-32m` example using [glmmTMB]{.pkg} has been running for more than a week on the machine that was used for the [MixedModels.jl]{.pkg} timings and has not yet completed.
+Given otherwise similar performance, we do not expect [lme4]{.pkg} to perform any better than [glmmTMB]{.pkg}.
+
+### Ordering of the random effects {#sec-app-re .appendix}
+
+To demonstrate the effect of ordering of the random effects, we fit the `insteval` model after a different ordering for the random effects.
+We first recreate a copy of the `insteval` model
+
+```{julia}
+#| eval: false
+m2 = fit(
+  MixedModel,
+  @formula(y ~ 1 + service + (1 | d) + (1 | s) + (1 | dept) + (0 + service | dept)),
+  dat,
+  progress=false    # suppress the display of a progress bar
+);
+```
+
+To demonstrate, we must manually reorder the random effects then recreate the augmented matrix $\mbfA$ and storage for the Cholesky factor $\mbfL$ as follows:
+```{julia}
+#| eval: false
+m2.reterms[1:2] = m2.reterms[2:-1:1]; # swap elements 1 and 2
+
+A, L = MixedModels.createAL(m2.reterms, m2.Xymat); # recreate A, L
+
+copyto!(m2.A, A); # set A
+copyto!(m2.L, L); # set L
+```
+
+Now we can refit the model:
+```{julia}
+@be refit!($m2; progress = false) seconds = 100 # very slow
+```
+
+This is an order of magnitude slower than just refitting the original model `m1`:
+```{julia}
+@be refit!($m1, progress = false) seconds = 8
+```
+
+Note that the output is exactly the same as `m1` but it takes much longer to fit.
+```{julia}
+print(m2)
+```
+
+### MovieLens Runtimes  {#sec-app-ml}
+
+The run times for the MovieLens models are summarized in @tbl-sizespeed.
+The movie cutoff is the threshold on the number of ratings per movie; the user cutoff  is the threshold on the number of ratings per user. The various ns are the number of ratings, users and movies in the resulting trimmed data set; the remaining columns summarize the memory and time requirements of the associated model.
+
+
+```{=latex}
+\ifXeTeX
+\footnotesize
+\else
+\small
+\fi
+```
+
+```{julia}
+#| echo: false
+#| output: asis
+#| tbl-cap: Summary of results for the `ml-32m` data modeling run speeds
+#| label: tbl-sizespeed
+sizespeed = CSV.read("./data/sizespeed.csv", DataFrame; downcast=true);
+rename!(sizespeed,
+        :mc => "movie cutoff",
+        :uc => "user cutoff",
+        :nratings => "ratings",
+        :nusers => "users",
+        :nmvie => "movies",
+        :modelsz => "model (GiB)",
+        :L22sz => "L[2,2] (GiB)",
+        :fittime => "time (s)",
+        :nv => "n eval",
+        :evtime => "time per eval (s)")
+pretty_table(sizespeed; formatters = ft_round(2, [6, 7, 9, 10]), backend = Val(:markdown), show_subheader = false)
+```
+
+```{=latex}
+\normalsize
+\clearpage
+```
+
+### Dimensions of quantities in linear mixed models {#sec-re-dim}
+
+The following table is mostly a reproduction of Table 3 from @bates.maechler.etal:2015, with slight modifications.
+
+| Symbol              | Description                                                   | `insteval` example         |
+|:--------------------|:--------------------------------------------------------------|:---------------------------|
+| $n$                 | length of the response vector $\mcY$                          | $n = 73{,}421$             |
+| $p$                 | no. of fixed effects in the model matrix $\mbfX$              | $p = 2$                    |   
+| $k$                 | no. of random effects terms                                   | $k = 3$ (`s`, `d`, `dept`) |
+| $p_i$               | no. of fixed effects terms in the $i^\text{th}$ random effect | $(1,1,2)$                  |
+| $\ell_i$            | no. of levels of the $i^\text{th}$ grouping factor            | $(2972, 1128, 14)$         |
+| $q_i = p_i \ell_i$  | no. of columns of the term-wise model matrix                  | $(2972, 1128, 28)$         |
+| $q = \sum_{i}q_i$   | no. of columns in the random effects model matrix $\mbfZ$     | $q = 4{,}128$              |
+| $q + p + 1$         | no. of columns (and rows) of the augmented matrix $\mbfA$     | $4131$                     |
+    
+
+: Sizes of model components {#tbl-re-sizes tbl-colwidths="[18,62,20]"}
+
+### Computing environment {#sec-app-env}
+
+The computing environment for all the timings, except for the models fit to the `ml-32m` data, was
+
+```{julia}
+versioninfo()
+```
+
+with an accelerated BLAS library
+
+```{julia}
+BLAS.get_config()
+```
+
+The versions of the Julia packages used are
+
+```{julia}
+using Pkg; Pkg.status()
+```
