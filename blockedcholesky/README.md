@@ -10,10 +10,7 @@
    ```
 - Generate the JSS formatted preview using:
     ```bash
-     $ make preview
-     ... lots of output ...
-    
-     # hit Ctrl + C to stop the preview
+     $ make render
     ```
 - Generate the arXiv formatted version using:
     ```bash
