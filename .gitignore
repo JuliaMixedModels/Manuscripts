@@ -51,3 +51,12 @@ blockedcholesky/BlockedCholeskyMM+jss.tex
 blockedcholesky/BlockedCholeskyMM+arxiv.tex
 blockedcholesky/BlockedCholeskyMM+arxiv.pdf
 blockedcholesky/BlockedCholeskyMM+jss.pdf
+
+
+**/*.aux
+**/*.bbl
+**/*.blg
+**/*.fdb_latexmk
+**/*.fls
+**/*.log
+**/*.synctex.gz
