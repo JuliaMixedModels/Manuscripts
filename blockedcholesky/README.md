@@ -3,7 +3,8 @@
 
 ## Steps
 
-- Install required dependencies by running:
+- Install `jupyter-cache` using the instructions from the quarto Julia docs [here](https://quarto.org/docs/computations/julia.html#jupyter-cache).
+- Install required `Julia` dependencies by running:
    ```bash
     $ julia --project=@. -e "import Pkg; Pkg.instantiate()"
    ```
