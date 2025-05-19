@@ -4,6 +4,7 @@
 ## Steps
 
 - Install `jupyter-cache` using the instructions from the quarto Julia docs [here](https://quarto.org/docs/computations/julia.html#jupyter-cache).
+- Install the `JuliaMono` font, see instructions at: https://juliamono.netlify.app
 - Install required `Julia` dependencies by running:
    ```bash
     $ julia --project=@. -e "import Pkg; Pkg.instantiate()"
