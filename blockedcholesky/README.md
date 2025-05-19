@@ -3,6 +3,7 @@
 
 ## Steps
 
+- Install (or update) [`quarto`](https://quarto.org/) version 1.7 or greater (v1.6 may work as well, basically use any version of `quarto` that supports `engine: julia`)
 - Install `jupyter-cache` using the instructions from the quarto Julia docs [here](https://quarto.org/docs/computations/julia.html#jupyter-cache).
 - Install the `JuliaMono` font, see instructions at: https://juliamono.netlify.app
 - Install required `Julia` dependencies by running:
