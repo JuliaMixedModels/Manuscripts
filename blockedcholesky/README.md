@@ -17,3 +17,10 @@
     $ make render-arxiv
     ```
     **Note:** this command re-runs the `R` benchmark script which can take a long time.
+    **Note:** For the arxiv version, you need to have `cbfonts-fd` and `cbfonts` packages installed in your latex distribution
+- If you get errors due to caching, try using the `--no-cache` option for quarto:
+    ```bash
+    quarto render BlockedCholeskyMM.qmd --no-cache                      # for JSS version render
+    quarto render BlockedCholeskyMM.qmd --no-cache --to arxiv-pdf+arxiv # for arxiv version
+
+    ```
