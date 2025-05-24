@@ -1,0 +1,71 @@
+Julia Version 1.11.5
+Commit 760b2e5b739 (2025-04-14 06:53 UTC)
+Build Info:
+  Official https://julialang.org/ release
+Platform Info:
+  OS: macOS (arm64-apple-darwin24.0.0)
+  CPU: 8 × Apple M1 Pro
+  WORD_SIZE: 64
+  LLVM: libLLVM-16.0.6 (ORCJIT, apple-m1)
+Threads: 6 default, 0 interactive, 3 GC (on 6 virtual cores)
+Status `~/git/Manuscripts/blockedcholesky/Project.toml`
+  [cbdf2221] AlgebraOfGraphics v0.10.6
+  [13e28ba4] AppleAccelerate v0.4.0
+  [69666777] Arrow v2.8.0
+  [336ed68f] CSV v0.10.15
+  [13f3f980] CairoMakie v0.13.7
+  [0ca39b1e] Chairmarks v1.3.1
+  [a93c6f00] DataFrames v1.7.0
+  [33e6dc65] MKL v0.8.0
+  [ff71e718] MixedModels v4.35.0
+  [0a7d04aa] PRIMA v0.2.2
+  [08abe8d2] PrettyTables v2.4.0
+  [856f044c] MKL_jll v2025.0.1+1
+  [de0858da] Printf v1.11.0
+  [2f01184e] SparseArrays v1.11.0
+nothing
+
+LBTConfig([ILP64] libopenblas64_.dylib)
+
+Initial parameter vector: [1.0, 1.0, 1.0, 1.0]
+Initial objective value:  242059.14387186497
+
+Backend:                  nlopt
+Optimizer:                LN_BOBYQA
+Lower bounds:             [0.0, 0.0, 0.0, 0.0]
+ftol_rel:                 1.0e-12
+ftol_abs:                 1.0e-8
+xtol_rel:                 0.0
+xtol_abs:                 [1.0e-10, 1.0e-10, 1.0e-10, 1.0e-10]
+initial_step:             [0.75, 0.75, 0.75, 0.75]
+maxfeval:                 -1
+maxtime:                  -1.0
+
+Function evaluations:     181
+xtol_zero_abs:            0.001
+ftol_zero_abs:            1.0e-5
+Final parameter vector:   [0.27572694783915613, 0.4352917263395991, 0.04316230740526005, 0.1299749675679518]
+Final objective value:    237648.60164780272
+Return code:              FTOL_REACHED
+
+
+objective(updateL!(setθ!(m1, thetaOB1))) = 237648.60164780272
+
+Sample(time=0.007032292000000001, allocs=58, bytes=1504)
+Initial parameter vector: [1.0, 1.0, 1.0, 1.0]
+Initial objective value:  242059.14387186497
+
+Backend:                  prima
+Optimizer:                bobyqa
+Lower bounds:             [0.0, 0.0, 0.0, 0.0]
+rhobeg:                   1.0
+rhoend:                   1.0e-6
+maxfeval:                 -1
+
+Function evaluations:     76
+xtol_zero_abs:            0.001
+ftol_zero_abs:            1.0e-5
+Final parameter vector:   [0.2757270024730217, 0.43529107377028553, 0.04316118531994337, 0.12997646652807276]
+Final objective value:    237648.60164779186
+Return code:              SMALL_TR_RADIUS
+
