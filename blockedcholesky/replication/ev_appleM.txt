@@ -49,9 +49,9 @@ Final objective value:    237648.60164780272
 Return code:              FTOL_REACHED
 
 
-objective(updateL!(setθ!(m1, thetaOB1))) = 237648.60164780272
+objective(updateL!(setθ!(m, thetaOB1))) = 237648.60164780272
 
-Sample(time=0.007032292000000001, allocs=58, bytes=1504)
+Sample(time=0.0071772500000000005, allocs=58, bytes=1504)
 Initial parameter vector: [1.0, 1.0, 1.0, 1.0]
 Initial objective value:  242059.14387186497
 
@@ -67,5 +67,49 @@ xtol_zero_abs:            0.001
 ftol_zero_abs:            1.0e-5
 Final parameter vector:   [0.2757270024730217, 0.43529107377028553, 0.04316118531994337, 0.12997646652807276]
 Final objective value:    237648.60164779186
+Return code:              SMALL_TR_RADIUS
+
+LBTConfig([LP64] Accelerate, [ILP64] Accelerate)
+
+Initial parameter vector: [1.0, 1.0, 1.0, 1.0]
+Initial objective value:  242059.14387186497
+
+Backend:                  nlopt
+Optimizer:                LN_BOBYQA
+Lower bounds:             [0.0, 0.0, 0.0, 0.0]
+ftol_rel:                 1.0e-12
+ftol_abs:                 1.0e-8
+xtol_rel:                 0.0
+xtol_abs:                 [1.0e-10, 1.0e-10, 1.0e-10, 1.0e-10]
+initial_step:             [0.75, 0.75, 0.75, 0.75]
+maxfeval:                 -1
+maxtime:                  -1.0
+
+Function evaluations:     173
+xtol_zero_abs:            0.001
+ftol_zero_abs:            1.0e-5
+Final parameter vector:   [0.27572689108074344, 0.4352913075607651, 0.04316427749556987, 0.12998231312662356]
+Final objective value:    237648.60164785833
+Return code:              FTOL_REACHED
+
+
+objective(updateL!(setθ!(m, thetaOB1))) = 237648.60164780298
+
+Sample(time=0.005480125000000001, allocs=58, bytes=1504)
+Initial parameter vector: [1.0, 1.0, 1.0, 1.0]
+Initial objective value:  242059.14387186497
+
+Backend:                  prima
+Optimizer:                bobyqa
+Lower bounds:             [0.0, 0.0, 0.0, 0.0]
+rhobeg:                   1.0
+rhoend:                   1.0e-6
+maxfeval:                 -1
+
+Function evaluations:     77
+xtol_zero_abs:            0.001
+ftol_zero_abs:            1.0e-5
+Final parameter vector:   [0.27572697189002504, 0.4352910926159146, 0.043161123650275815, 0.12997717957171298]
+Final objective value:    237648.60164779192
 Return code:              SMALL_TR_RADIUS
 
