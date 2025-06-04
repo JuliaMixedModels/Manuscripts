@@ -1,0 +1,3 @@
+os,arch,BLAS,initial
+macos,aarch64,OpenBLAS,242059.14387186497
+macos,aarch64,AppleAccelerate,242059.14387186497

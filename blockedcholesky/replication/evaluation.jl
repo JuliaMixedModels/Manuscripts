@@ -1,36 +1,28 @@
-using Chairmarks, DataFrames, InteractiveUtils, LinearAlgebra, Pkg, PRIMA
+using MKL_jll
 using MixedModels       # want this to be after PRIMA
+import CSV
 
-versioninfo()
-
-println(Pkg.status())
-println()
-println(BLAS.get_config())
-println()
-
-const dat = DataFrame(MixedModels.dataset(:insteval));
-dat.service = float.(dat.service .== "Y");
+const dat = MixedModels.dataset(:insteval);
 const form = @formula(y ~ 1 + service + (1|s) + (1|d) + (1|dept) + (0 + service|dept));
+const m1 = LinearMixedModel(form, dat)
+@assert m1.optsum.initial == ones(4)
 
-function timeit(form=form, dat=dat)
-    m = LinearMixedModel(form, dat)
-    fit!(m; progress=false);
-    println(m.optsum)
-    println()
-    # evaluate objective at the converged values from OpenBLAS with 1 thread 
-    thetaOB1 = [0.27572694783915613, 0.4352917263395991, 0.04316230740526005, 0.1299749675679518];
-    @show(objective(updateL!(setθ!(m, thetaOB1))))
-    println()
-    println(@b objective(updateL!(setθ!($m, thetaOB1))))
-    MixedModels.prfit!(m; progress=false);
-    println(m.optsum)
+const progress = false
+pltfrmtags = Base.BinaryPlatforms.HostPlatform().tags
+const arch = pltfrmtags["arch"]
+const os = pltfrmtags["os"]
+obj(θ::Vector{Float64}) = objective(updateL!(setθ!(m1, θ)))
+BLAS = "OpenBLAS"
+tbl = [(; os, arch, BLAS, initial=obj(ones(4)))]
+
+# install accelerated BLAS
+@static if Sys.isapple() && arch == "aarch64"
+  using AppleAccelerate
+  BLAS = "AppleAccelerate"
+elseif MKL_jll.is_available()
+  using MKL
+  BLAS = "MKL"
 end
 
-timeit()
-
-using AppleAccelerate
-
-println(BLAS.get_config())
-println()
-
-timeit()
+push!(tbl, (; os, arch, BLAS, initial=obj(ones(4))))
+CSV.write("../data/evaluation.csv", tbl)
