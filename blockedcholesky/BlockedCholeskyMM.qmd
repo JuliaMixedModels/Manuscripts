@@ -700,6 +700,36 @@ Because the [1,1] block of $\mbfL$ is diagonal and the [1,1] block of $\mbfLambd
 For example, the [2,1] block of $\mbfA$ is stored as a sparse matrix because only about 2% (73421) of the $2792\times1128=3352416$ elements of that matrix are non-zero.
 The [2,1] block of $\mbfL$ has exactly the same sparsity structure because each element of that block of $\mbfL$ is a scalar multiple of the corresponding element of that block of $\mbfA$.
 
+### Reproducibility of values of the objective function {#sec-reproducibility}
+
+The theoretical development in @sec-profiled describes a method for evaluation of the objective function, which is negative twice the profiled log-likelihood, for a given model and value of the relative covariance parameters, $\mbftheta$.
+Determining the maximum likelihood estimates requires numerical minimization of this objective, for which we use one of two implementations of Powell's BOBYQA (Bounded Optimisation BY Quadratic Approximation) algorithm (@powell2009bobyqa). 
+By default the `fit` method for a `MixedModel` uses the implementation from the [NLopt.jl]{.pkg} package.
+An alternative fitting function, `prfit`, uses the BOBYQA implementation from the [PRIMA.jl]{.pkg} package.
+
+Even though the algorithm is the same in the two implementations we can expect slight differences in the converged parameter estimates because of differences in the implementations, convergence criteria, etc.
+Fortunately the nature of the objective allows for an assessment of whether differences in converged values are of importance.
+Differences in this objective, negative twice the log-likelihood, would be equal to differences in the deviance, if there was a clean definition of the deviance for these models, because the deviance is the negative log-likelihood minus a constant, and the constant will cancel out when considering the difference in the deviances of two models.
+
+In an analysis of deviance this difference in the deviances of a null and an alternative model is assumed to have a $\chi^2$ distribution with degrees of freedom equal to the number of parameters constrained from the full model to generate the null model.
+The point we can carry away from this is that small differences in the log-likelihood, say less than $10^{-4}$, will not affect the conclusion from the test.
+Thus we can consider different model fits representing the same model to be equivalent if the difference in the objective at convergence is less than, say, $10^{-4}$.
+
+Moreover, the nature of floating point computation can result in slight differences in the evaluated objective on different processor architectures or different numerical libraries such as BLAS/Lapack implementations.
+The reason for small differences in objective values with different BLAS/Lapack implementations is that "accelerated" BLAS often rearrange the order of operations in an expression so as to minimize cache misses or to use multiple threads of execution.
+Because floating point addition in particular is not necessarily transitive (i.e. the floating point sum $(a + b) + c$ is not guaranteed to be the same as $a + (b + c)$) reordering arithmetic operations in linear algebra calculations can result in slightly different numerical results, which is accepted as part of "the cost of doing business" in large scale numerical computation.
+
+The starting values for the parameters in a model like that fit to the `insteval` data are chosen so that the initial $\mbfLambda$ is the identity matrix.
+Even with this parameter value, for which matrix multiplications by $\mbfLambda$ or its transpose will be exact, the calculated objective value, stored as the `optsum.finitial` property, can vary slightly according to the processor and BLAS implementation used.
+As shown in @sec-app-env, the results shown here were evaluated on an Apple M-series processor under MacOS with the AppleAccelerate version of the BLAS, producing
+
+```{julia}
+m1.optsum.finitial
+```
+
+On other machines with Intel x86-64 processors and OpenBLAS the same code produced an initial objective value of 242059.14387186486 while using the MKL implementatio of the BLAS produced 242059.14387186494 .
+Because these values agree to nine decimal places the differences are negligible but they will compound during optimization, which in this case involved about 175 to 200 evaluations and the final parameter estimates will be slightly different on different machines with potentially different BLAS implementations.
+
 ## Application to data from an observational study {#sec-application}
 
 We consider an observational study -- ratings of movies by users of [movielens.org](https://movielens.org) made available at the [grouplens.org download site](https://grouplens.org/datasets/movielens) [@Harper2016] as *MovieLens 32M Dataset* (`ml-32m`), consisting of roughly 32 million ratings of over 80,000 movies by over 200,000 users.
