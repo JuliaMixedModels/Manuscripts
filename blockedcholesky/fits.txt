@@ -1,0 +1,91 @@
+julia> m1 = fit(MixedModel, form, dat; progress) # x86_64, Linux, OpenBLAS
+Linear mixed model fit by maximum likelihood
+ y ~ 1 + service + (1 | s) + (1 | d) + (1 | dept) + (0 + service | dept)
+    logLik     -2 logLik       AIC         AICc          BIC     
+ -118824.3008  237648.6016  237662.6016  237662.6032  237727.0294
+
+Variance components:
+            Column    Variance  Std.Dev.   Corr.
+s        (Intercept)  0.1052972 0.3244953
+d        (Intercept)  0.2624240 0.5122733
+dept     (Intercept)  0.0025799 0.0507923
+         service: Y   0.0233961 0.1529578   .  
+Residual              1.3850085 1.1768638
+ Number of obs: 73421; levels of grouping factors: 2972, 1128, 14
+
+  Fixed-effects parameters:
+─────────────────────────────────────────────────────
+                  Coef.  Std. Error       z  Pr(>|z|)
+─────────────────────────────────────────────────────
+(Intercept)   3.27765     0.023503   139.46    <1e-99
+service: Y   -0.0507441   0.0439857   -1.15    0.2486
+─────────────────────────────────────────────────────
+
+julia> m1 = fit(MixedModel, form, dat; progress)  # x86_64, Linux, MKL
+Linear mixed model fit by maximum likelihood
+ y ~ 1 + service + (1 | s) + (1 | d) + (1 | dept) + (0 + service | dept)
+    logLik     -2 logLik       AIC         AICc          BIC     
+ -118824.3008  237648.6016  237662.6016  237662.6032  237727.0294
+
+Variance components:
+            Column    Variance  Std.Dev.   Corr.
+s        (Intercept)  0.1052957 0.3244930
+d        (Intercept)  0.2624288 0.5122781
+dept     (Intercept)  0.0025802 0.0507954
+         service: Y   0.0233988 0.1529668   .  
+Residual              1.3850086 1.1768639
+ Number of obs: 73421; levels of grouping factors: 2972, 1128, 14
+
+  Fixed-effects parameters:
+─────────────────────────────────────────────────────
+                  Coef.  Std. Error       z  Pr(>|z|)
+─────────────────────────────────────────────────────
+(Intercept)   3.27765     0.0235036  139.45    <1e-99
+service: Y   -0.0507433   0.043988    -1.15    0.2487
+─────────────────────────────────────────────────────
+
+julia> m1 = fit(MixedModel, form, dat; progress)  # Apple M-series, MacOS, OpenBLAS
+Linear mixed model fit by maximum likelihood
+ y ~ 1 + service + (1 | s) + (1 | d) + (1 | dept) + (0 + service | dept)
+    logLik     -2 logLik       AIC         AICc          BIC     
+ -118824.3008  237648.6016  237662.6016  237662.6032  237727.0294
+
+Variance components:
+            Column    Variance  Std.Dev.   Corr.
+s        (Intercept)  0.1052958 0.3244931
+d        (Intercept)  0.2624299 0.5122791
+dept     (Intercept)  0.0025802 0.0507962
+         service: Y   0.0233976 0.1529628   .  
+Residual              1.3850085 1.1768639
+ Number of obs: 73421; levels of grouping factors: 2972, 1128, 14
+
+  Fixed-effects parameters:
+─────────────────────────────────────────────────────
+                  Coef.  Std. Error       z  Pr(>|z|)
+─────────────────────────────────────────────────────
+(Intercept)   3.27765     0.0235037  139.45    <1e-99
+service: Y   -0.0507436   0.043987    -1.15    0.2487
+─────────────────────────────────────────────────────
+
+julia> m1 = fit(MixedModel, form, dat; progress) # Apple M-series, MacOS, AppleAccelerate
+Linear mixed model fit by maximum likelihood
+ y ~ 1 + service + (1 | s) + (1 | d) + (1 | dept) + (0 + service | dept)
+    logLik     -2 logLik       AIC         AICc          BIC     
+ -118824.3008  237648.6016  237662.6016  237662.6032  237727.0294
+
+Variance components:
+            Column    Variance  Std.Dev.   Corr.
+s        (Intercept)  0.1052957 0.3244930
+d        (Intercept)  0.2624294 0.5122786
+dept     (Intercept)  0.0025805 0.0507985
+         service: Y   0.0234003 0.1529715   .  
+Residual              1.3850085 1.1768639
+ Number of obs: 73421; levels of grouping factors: 2972, 1128, 14
+
+  Fixed-effects parameters:
+────────────────────────────────────────────────────
+                 Coef.  Std. Error       z  Pr(>|z|)
+────────────────────────────────────────────────────
+(Intercept)   3.27765    0.0235041  139.45    <1e-99
+service: Y   -0.050743   0.0439892   -1.15    0.2487
+────────────────────────────────────────────────────
