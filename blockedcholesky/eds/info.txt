@@ -1,0 +1,26 @@
+Julia Version 1.11.5
+Commit 760b2e5b739 (2025-04-14 06:53 UTC)
+Build Info:
+  Official https://julialang.org/ release
+Platform Info:
+  OS: Linux (x86_64-linux-gnu)
+  CPU: 4 × Intel(R) Xeon(R) Gold 6154 CPU @ 3.00GHz
+  WORD_SIZE: 64
+  LLVM: libLLVM-16.0.6 (ORCJIT, skylake-avx512)
+Threads: 1 default, 0 interactive, 1 GC (on 4 virtual cores)
+Status `~/5816/jss-replication/Project.toml`
+⌅ [cbdf2221] AlgebraOfGraphics v0.10.8
+  [13e28ba4] AppleAccelerate v0.4.1
+  [69666777] Arrow v2.8.0
+  [336ed68f] CSV v0.10.15
+⌅ [13f3f980] CairoMakie v0.13.10
+  [0ca39b1e] Chairmarks v1.3.1
+  [a93c6f00] DataFrames v1.7.0
+  [33e6dc65] MKL v0.9.0
+  [ff71e718] MixedModels v4.35.2
+  [08abe8d2] PrettyTables v2.4.0
+  [6f49c342] RCall v0.14.8
+  [856f044c] MKL_jll v2025.0.1+1
+  [de0858da] Printf v1.11.0
+  [2f01184e] SparseArrays v1.11.0
+Info Packages marked with ⌅ have new versions available but compatibility constraints restrict them from upgrading. To see why use `status --outdated`

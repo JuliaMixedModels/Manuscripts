@@ -1,0 +1,221 @@
+   Resolving package versions...
+   Installed Conda ───────────── v1.10.2
+   Installed VersionParsing ──── v1.3.0
+   Installed WinReg ──────────── v1.0.0
+   Installed RCall ───────────── v0.14.8
+   Installed CategoricalArrays ─ v0.10.8
+    Updating `~/5816/jss-replication/Project.toml`
+  [6f49c342] + RCall v0.14.8
+    Updating `~/5816/jss-replication/Manifest.toml`
+  [324d7699] + CategoricalArrays v0.10.8
+  [8f4d0f93] + Conda v1.10.2
+  [6f49c342] + RCall v0.14.8
+  [81def892] + VersionParsing v1.3.0
+  [1b915085] + WinReg v1.0.0
+    Building Conda → `~/.julia/scratchspaces/44cfe95a-1eb2-52ea-b672-e2afdf69b78f/b19db3927f0db4151cb86d073689f2428e524576/build.log`
+    Building RCall → `~/.julia/scratchspaces/44cfe95a-1eb2-52ea-b672-e2afdf69b78f/815f2e4b52e377eb7ae21c8235bd3e2e3e0bfd9e/build.log`
+Precompiling project...
+   1009.3 ms  ✓ VersionParsing
+    875.4 ms  ✓ WinReg
+    925.1 ms  ✓ Conda
+   2643.4 ms  ✓ CategoricalArrays
+    547.0 ms  ✓ CategoricalArrays → CategoricalArraysStructTypesExt
+    557.5 ms  ✓ CategoricalArrays → CategoricalArraysSentinelArraysExt
+    622.8 ms  ✓ CategoricalArrays → CategoricalArraysJSONExt
+  11557.8 ms  ✓ RCall → RCallAxisArraysExt
+  8 dependencies successfully precompiled in 12 seconds. 351 already precompiled.
+\begin{tabular}{rrrrrr}
+  \hline
+  \textbf{variable} & \textbf{min} & \textbf{max} & \textbf{mean} & \textbf{nunique} & \textbf{eltype} \\\hline
+  s & S0001 & S2972 & - & 2972 & String \\
+  d & I0001 & I2160 & - & 1128 & String \\
+  dept & D01 & D15 & - & 14 & String \\
+  studage & 2 & 8 & - & 4 & String \\
+  lectage & 1 & 6 & - & 6 & String \\
+  service & 0.0 & 1.0 & 0.43 & - & Float64 \\
+  y & 1 & 5 & 3.21 & - & Int8 \\\hline
+\end{tabular}
+Linear mixed model fit by maximum likelihood
+ y ~ 1 + service + (1 | d) + (1 | s) + (1 | dept) + (0 + service | dept)
+    logLik     -2 logLik       AIC         AICc          BIC     
+ -118824.3009  237648.6017  237662.6017  237662.6033  237727.0295
+
+Variance components:
+            Column    Variance  Std.Dev.   Corr.
+s        (Intercept)  0.1052912 0.3244861
+d        (Intercept)  0.2624290 0.5122782
+dept     (Intercept)  0.0025808 0.0508012
+         service      0.0233072 0.1526671   .  
+Residual              1.3850110 1.1768649
+ Number of obs: 73421; levels of grouping factors: 2972, 1128, 14
+
+  Fixed-effects parameters:
+─────────────────────────────────────────────────────
+                  Coef.  Std. Error       z  Pr(>|z|)
+─────────────────────────────────────────────────────
+(Intercept)   3.27765     0.0235043  139.45    <1e-99
+service      -0.0507681   0.043913    -1.16    0.2476
+─────────────────────────────────────────────────────DataType[ReMat{Float64, 1}, ReMat{Float64, 1}, ReMat{Float64, 2}][2972, 1128, 14][2972, 1128, 28][0.27572075999408585, 0.43529059514658697, 0.043166525487089165, 0.12972357349206423]Linear mixed model fit by REML
+ y ~ 1 + service + (1 | d) + (1 | s) + (1 | dept) + (0 + service | dept)
+ REML criterion at convergence: 237658.60945204942
+
+Variance components:
+            Column    Variance  Std.Dev.   Corr.
+s        (Intercept)  0.1053184 0.3245279
+d        (Intercept)  0.2624392 0.5122882
+dept     (Intercept)  0.0030504 0.0552307
+         service      0.0256191 0.1600596   .  
+Residual              1.3850028 1.1768614
+ Number of obs: 73421; levels of grouping factors: 2972, 1128, 14
+
+  Fixed-effects parameters:
+─────────────────────────────────────────────────────
+                  Coef.  Std. Error       z  Pr(>|z|)
+─────────────────────────────────────────────────────
+(Intercept)   3.27771     0.0242461  135.19    <1e-99
+service      -0.0502827   0.045775    -1.10    0.2720
+─────────────────────────────────────────────────────Linear mixed model fit by maximum likelihood
+ y ~ 1 + service + (1 | d) + (1 | s) + (1 | dept) + (0 + service | dept)
+    logLik     -2 logLik       AIC         AICc          BIC     
+ -118824.3008  237648.6016  237662.6016  237662.6032  237727.0294
+
+Variance components:
+            Column    Variance  Std.Dev.   Corr.
+d        (Intercept)  0.2624226 0.5122720
+s        (Intercept)  0.1052959 0.3244934
+dept     (Intercept)  0.0025799 0.0507932
+         service      0.0233976 0.1529627   .  
+Residual              1.3850090 1.1768641
+ Number of obs: 73421; levels of grouping factors: 1128, 2972, 14
+
+  Fixed-effects parameters:
+─────────────────────────────────────────────────────
+                  Coef.  Std. Error       z  Pr(>|z|)
+─────────────────────────────────────────────────────
+(Intercept)   3.27765     0.0235031  139.46    <1e-99
+service      -0.0507437   0.0439869   -1.15    0.2487
+─────────────────────────────────────────────────────| **movie cutoff** | **user cutoff** | **ratings** | **users** | **movies** | **model (GiB)** | **L[2,2] (GiB)** | **n eval** | **time (s)** | **time per eval (s)** |
+|-----------------:|----------------:|------------:|----------:|-----------:|----------------:|-----------------:|-----------:|-------------:|----------------------:|
+| 1                | 20              | 32000204    | 200948    | 84432      | 56.25           | 53.11            | 26         | 18740.1      | 667.46                |
+| 2                | 20              | 31981597    | 200948    | 65825      | 35.41           | 32.28            | 19         | 7091.55      | 355.21                |
+| 5                | 20              | 31921467    | 200948    | 43884      | 17.47           | 14.35            | 26         | 3816.29      | 142.37                |
+| 10               | 20              | 31842705    | 200948    | 31961      | 10.72           | 7.61             | 25         | 2165.85      | 82.71                 |
+| 15               | 20              | 31777786    | 200948    | 26428      | 8.31            | 5.2              | 24         | 1619.62      | 64.59                 |
+| 20               | 20              | 31725920    | 200948    | 23350      | 7.16            | 4.06             | 21         | 1253.51      | 57.18                 |
+| 50               | 20              | 31498689    | 200947    | 16034      | 4.99            | 1.92             | 28         | 1212.59      | 42.09                 |
+| 1                | 40              | 30433400    | 144848    | 84205      | 55.8            | 52.83            | 23         | 15952.8      | 663.37                |
+| 2                | 40              | 30415014    | 144848    | 65819      | 35.25           | 32.28            | 32         | 11565.4      | 356.29                |
+| 5                | 40              | 30355623    | 144848    | 43884      | 17.31           | 14.35            | 38         | 5496.85      | 139.71                |
+| 10               | 40              | 30277758    | 144848    | 31961      | 10.56           | 7.61             | 21         | 1840.27      | 83.44                 |
+| 15               | 40              | 30213583    | 144848    | 26428      | 8.15            | 5.2              | 21         | 1428.19      | 64.85                 |
+| 20               | 40              | 30162330    | 144848    | 23350      | 7.0             | 4.06             | 17         | 1026.09      | 57.08                 |
+| 50               | 40              | 29938038    | 144848    | 16034      | 4.83            | 1.92             | 24         | 1046.22      | 41.57                 |
+| 1                | 80              | 27569316    | 94380     | 83897      | 55.13           | 52.44            | 23         | 16155.2      | 677.07                |
+| 2                | 80              | 27551218    | 94380     | 65799      | 34.94           | 32.26            | 22         | 8541.43      | 392.76                |
+| 5                | 80              | 27492886    | 94380     | 43884      | 17.03           | 14.35            | 23         | 3564.96      | 142.58                |
+| 10               | 80              | 27416310    | 94380     | 31961      | 10.28           | 7.61             | 23         | 2054.17      | 85.29                 |
+| 15               | 80              | 27353366    | 94380     | 26428      | 7.87            | 5.2              | 26         | 1785.08      | 65.72                 |
+| 20               | 80              | 27303019    | 94380     | 23350      | 6.72            | 4.06             | 43         | 2527.21      | 57.72                 |
+| 50               | 80              | 27083536    | 94380     | 16034      | 4.55            | 1.92             | 20         | 873.98       | 41.38                 |
+Status `~/5816/jss-replication/Project.toml`
+⌅ [cbdf2221] AlgebraOfGraphics v0.10.8
+  [13e28ba4] AppleAccelerate v0.4.1
+  [69666777] Arrow v2.8.0
+  [336ed68f] CSV v0.10.15
+⌅ [13f3f980] CairoMakie v0.13.10
+  [0ca39b1e] Chairmarks v1.3.1
+  [a93c6f00] DataFrames v1.7.0
+  [33e6dc65] MKL v0.9.0
+  [ff71e718] MixedModels v4.35.2
+  [08abe8d2] PrettyTables v2.4.0
+  [6f49c342] RCall v0.14.8
+  [856f044c] MKL_jll v2025.0.1+1
+  [de0858da] Printf v1.11.0
+  [2f01184e] SparseArrays v1.11.0
+Info Packages marked with ⌅ have new versions available but compatibility constraints restrict them from upgrading. To see why use `status --outdated`
+Linear mixed model fit by maximum likelihood  ['lmerMod']
+Formula: y ~ 1 + service + (1 | s) + (1 | d) + (1 | dept) + (0 + service |  
+    dept)
+   Data: dat
+Control: ctrl
+
+      AIC       BIC    logLik -2*log(L)  df.resid 
+ 237662.6  237727.0 -118824.3  237648.6     73414 
+
+Scaled residuals: 
+     Min       1Q   Median       3Q      Max 
+-2.99960 -0.74769  0.04009  0.77283  3.11346 
+
+Random effects:
+ Groups   Name        Variance Std.Dev.
+ s        (Intercept) 0.10530  0.32449 
+ d        (Intercept) 0.26243  0.51228 
+ dept     (Intercept) 0.00258  0.05079 
+ dept.1   service     0.02340  0.15297 
+ Residual             1.38501  1.17686 
+Number of obs: 73421, groups:  s, 2972; d, 1128; dept, 14
+
+Fixed effects:
+            Estimate Std. Error t value
+(Intercept)  3.27765    0.02350 139.457
+service     -0.05074    0.04399  -1.154
+ Family: gaussian  ( identity )
+Formula:          
+y ~ 1 + service + (1 | s) + (1 | d) + (1 | dept) + (0 + service |      dept)
+Data: dat
+
+      AIC       BIC    logLik -2*log(L)  df.resid 
+ 237662.6  237727.0 -118824.3  237648.6     73414 
+
+Random effects:
+
+Conditional model:
+ Groups   Name        Variance Std.Dev.
+ s        (Intercept) 0.10530  0.32449 
+ d        (Intercept) 0.26243  0.51228 
+ dept     (Intercept) 0.00258  0.05079 
+ dept.1   service     0.02340  0.15296 
+ Residual             1.38501  1.17686 
+Number of obs: 73421, groups:  s, 2972; d, 1128; dept, 14
+
+Dispersion estimate for gaussian family (sigma^2): 1.39 
+
+Conditional model:
+            Estimate Std. Error z value Pr(>|z|)    
+(Intercept)  3.27765    0.02351  139.39   <2e-16 ***
+service     -0.05074    0.04408   -1.15     0.25    
+---
+Signif. codes:  0 ‘***’ 0.001 ‘**’ 0.01 ‘*’ 0.05 ‘.’ 0.1 ‘ ’ 1
+Unit: seconds
+    expr      min       lq     mean   median       uq      max neval cld
+    lmer 13.66375 13.79771 14.35411 13.96587 14.11864 16.61282     6  a 
+ glmmTMB 15.96895 16.00377 16.62984 16.59592 17.08531 17.52916     6   b
+[1] "R version 4.5.0 (2025-04-11)"
+[1] ‘1.1.37’
+[1] ‘1.1.11’
+Julia Version 1.11.5
+Commit 760b2e5b739 (2025-04-14 06:53 UTC)
+Build Info:
+  Official https://julialang.org/ release
+Platform Info:
+  OS: Linux (x86_64-linux-gnu)
+  CPU: 4 × Intel(R) Xeon(R) Gold 6154 CPU @ 3.00GHz
+  WORD_SIZE: 64
+  LLVM: libLLVM-16.0.6 (ORCJIT, skylake-avx512)
+Threads: 1 default, 0 interactive, 1 GC (on 4 virtual cores)
+Status `~/5816/jss-replication/Project.toml`
+⌅ [cbdf2221] AlgebraOfGraphics v0.10.8
+  [13e28ba4] AppleAccelerate v0.4.1
+  [69666777] Arrow v2.8.0
+  [336ed68f] CSV v0.10.15
+⌅ [13f3f980] CairoMakie v0.13.10
+  [0ca39b1e] Chairmarks v1.3.1
+  [a93c6f00] DataFrames v1.7.0
+  [33e6dc65] MKL v0.9.0
+  [ff71e718] MixedModels v4.35.2
+  [08abe8d2] PrettyTables v2.4.0
+  [6f49c342] RCall v0.14.8
+  [856f044c] MKL_jll v2025.0.1+1
+  [de0858da] Printf v1.11.0
+  [2f01184e] SparseArrays v1.11.0
+Info Packages marked with ⌅ have new versions available but compatibility constraints restrict them from upgrading. To see why use `status --outdated`
