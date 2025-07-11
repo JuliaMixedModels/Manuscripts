@@ -721,7 +721,7 @@ Because floating point addition in particular is not necessarily transitive (i.e
 
 The starting values for the parameters in a model like that fit to the `insteval` data are chosen so that the initial $\mbfLambda$ is the identity matrix.
 Even with this parameter value, for which matrix multiplications by $\mbfLambda$ or its transpose will be exact, the calculated objective value, stored as the `optsum.finitial` property, can vary slightly according to the processor and BLAS implementation used.
-As shown in @sec-app-env, the results shown here were evaluated on an Apple M-series processor under MacOS with the AppleAccelerate version of the BLAS, producing
+As shown in @sec-app-env, the results shown here were evaluated on an Apple M-series processor using macOS with the AppleAccelerate version of the BLAS, producing
 
 ```{julia}
 m1.optsum.finitial
