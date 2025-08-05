@@ -146,7 +146,7 @@ According to @eq-relcovfac, $\mbfSigma$ depends on both $\sigma$ and $\theta$, a
 However, we will blur that distinction and continue to write $\text{Var}(\mcB)=\mbfSigma_\theta$.
 
 Another technicality is that the *common scale parameter*, $\sigma$, could, in theory, be zero.
-However, the only way for its estimate, $\widehat{\sigma}$, to be zero is for the fitted values from the fixed-effects only, $\mbfX\widehat{\mbfbeta}$, to be exactly equal to the observed data.
+However, the only way for its estimate, $\widehat{\sigma}$, to be zero is for the fitted values from the fixed-effects only, $\mbfX\widehat{\mbfbeta}$, to be exactly equal to the observed response vector, $\mbfy$.
 This occurs only with data that have been (incorrectly) simulated without error.
 In practice, we can safely assume that $\sigma>0$.
 However, the estimated $\mbfLambda_\theta$, like $\mbfSigma_\theta$, can be singular.
@@ -346,7 +346,7 @@ and taking the logarithm provides the estimate of $\sigma^2$,
 given $\mbftheta$, as
 
 $$
-\widehat{\sigma^2}=\frac{r_yy^2}{n}\ ,
+\widehat{\sigma^2}=\frac{r_{yy}^2}{n}\ ,
 $$ {#eq-sigma-hat}
 
 which gives the *profiled log-likelihood*,
@@ -359,7 +359,7 @@ n\left(1+\log\left(\frac{2\pi r_{yy}^2(\mbftheta)}{n}\right)\right)\ .
 $$ {#eq-profiled-log-likelihood}
 
 One of the interesting aspects of this formulation is that it is not necessary to solve for the conditional estimate of $\mbfbeta$ or the conditional modes of the random effects when evaluating the log-likelihood.
-The two values needed for the log-likelihood evaluation, $2\log(|\mbfR_{ZZ}|)$ and $r_\mathbf{yy}^2$, are obtained directly from the diagonal elements of the Cholesky factor.
+The two values needed for the log-likelihood evaluation, $2\log(|\mbfR_{ZZ}|)$ and $r_{yy}^2$, are obtained directly from the diagonal elements of the Cholesky factor.
 
 Furthermore, $\mbfOmega_{\theta}$ and, from that, the Cholesky factor, $\mbfR_{\theta}$, and the objective to be optimized can be evaluated for a given value of $\mbftheta$ from the Gram matrix of the columns of $\mbfZ$, $\mbfX$ and $\mbfy$,
 
@@ -373,8 +373,8 @@ $$ {#eq-A}
 
 and $\mbfLambda_{\theta}$.
 
-In [MixedModels.jl]{.pkg} the `LinearMixedModel` struct contains a blocked representation of $\mathbf{A}$ in the `A` field and a similarly structured lower-triangular blocked array in the `L` field.
-Evaluation of the objective simply involves updating a representation of the relative covariance factor $\mbfLambda_\theta$ from $\mbftheta$, forming $\mbfOmega_\theta$ (@eq-bigCholfac) from $\mbfA$ and $\mbfLambda_\theta$ then evaluating its lower Cholesky factor $\mbfL_\theta$.
+In [MixedModels.jl]{.pkg} the `LinearMixedModel` struct contains a blocked representation of the lower triangle of the symmetric matrix, $\mathbf{A}$, in the `A` field and a similarly structured lower-triangular blocked array in the `L` field.
+Evaluation of the objective simply involves updating a representation of the relative covariance factor $\mbfLambda_\theta$ from $\mbftheta$, forming the lower triangle of the symmetric matrix $\mbfOmega_\theta$ (@eq-bigCholfac) from $\mbfA$ and $\mbfLambda_\theta$ then evaluating its lower Cholesky factor $\mbfL_\theta$.
 
 In @eq-A the blocking structure is according to all the random effects, followed by the fixed-effects followed by the response.
 However, as described in @bates.maechler.etal:2015[Section 3], the structure of $\mbfZ$, $\mbfZ^{\top}\mbfZ$ and $\mbfLambda_\theta$ is further subdivided into blocks according to the random-effects terms in the model formula, which we cover in the next section.
@@ -534,7 +534,7 @@ In practice the response vector, $\mbfy$, is concatenated (`hcat`) to the fixed 
 In the block structure summary if a block of $\mbfL$ and its corresponding block of $\mbfA$ have the same structure, the name of that structure is given once.
 This is the case for all of the blocks except the [2,2] block, which is diagonal in $\mbfA$ but dense in $\mbfL$, the [2,3] block, which is sparse in $\mbfA$ but dense in $\mbfL$, and the [3,3] block, which is block-diagonal in $\mbfA$ and dense in $\mbfL$.
 
-As described in @bates.maechler.etal:2015[Section 3] the relative covariance factor, $\mbfLambda_\theta$ is block diagonal with the same blocking structure as the random effects parts of $\mbfA$ or $\mbfL$.
+As described in @bates.maechler.etal:2015[Section 3] the relative covariance factor, $\mbfLambda_\theta$, is block diagonal with the same blocking structure as the random effects parts of $\mbfA$ or $\mbfL$.
 The $i$th diagonal block, $i=1,\dots,k$, consists of $q_i$ repetitions on the diagonal of a $\ell_i\times\ell_i$ lower-triangular template matrix $\mbfT_i$.
 
 For a scalar random effects term (i.e. $\ell_i=1$) its block in $\mbfLambda_\theta$ is a multiple of the $q_i\times q_i$ identity matrix.
@@ -556,7 +556,7 @@ m1.λ
 ### Special role of the [1,1] block {#sec-one-one-block}
 
 The reason for ordering the random-effects terms so that the [1,1] block of $\mbfA$ is as large as possible is because the diagonal or block diagonal structure of this block is preserved in the [1,1] block of $\mbfL$.
-To illustrate the importance of choosing the first block of the augmented matrix $\mbfA$, we fit the same model with (a) the [1,1] block corresponding to the random effect term for the instructor (`1 | d`) with 1128 levels, and (b) the [1,1] block corresponding to the random effect term for students (`(1 | s)` with 2972 levels).
+To illustrate the importance of choosing the first block of the augmented matrix $\mbfA$, we fit the same model with (a) the [1,1] block corresponding to the random effect term for the instructor (`(1 | d)` with 1128 levels), and (b) the [1,1] block corresponding to the random effect term for students (`(1 | s)` with 2972 levels).
 <!-- In model `m1` the first block of $\mbfA$ and of $\mbfL$ is diagonal and the first block of $\mbfLambda_\theta$ is a multiple of the identity. -->
 
 ```{julia}
@@ -689,10 +689,10 @@ CairoMakie.activate!(; type="pdf");
 
 ![Sparsity pattern of the lower triangular Cholesky factor when the order of the random effects is not carefully chosen (left) and when the order is carefully chosen (right).](lmm_side_by_s.png){#fig-blk width=100% fig-pos='!h'} -->
 
-@fig-a shows the non-zero elements of the augmented matrix, $\mbfA$, when (a) the first block corresponsds to the random effect terms for the instructor (`(1 | d)` with 1128 levels), and (b) the first block corresponds to the student (`(1 | s)` with 2972 levels), and @fig-blk shows the non-zero elements for the corresponding lower-triangular Cholesky factor.
-When performing a block-wise Cholesky factorization, the diagonal structure of the $[1,1]$ block from the input matrix is preserved in the Cholesky factor, but the diagonal structure for the subsequent diagonal blocks (e.g [2,2]) is not preserved.
+@fig-a shows the non-zero elements of the augmented matrix, $\mbfA$, when (a) the first block corresponds to the random effect term for the instructor (`(1 | d)` with 1128 levels), and (b) the first block corresponds to the student (`(1 | s)` with 2972 levels), and @fig-blk shows the non-zero elements for the corresponding lower-triangular Cholesky factor.
+When performing a block-wise Cholesky factorization, the diagonal structure of the $[1,1]$ block from the input matrix is preserved in the Cholesky factor, but the diagonal structure for the subsequent diagonal blocks (e.g [2,2]) is generally not preserved.
 While the models are theoretically identical, the latter is computationally more efficient as the largest diagonal block preserves its structure.
-In fact, for the `insteval` dataset, the former order leads to approximately 4.5 million non-zero entries in the Cholesky factor, whereas choosing the random effect with the largest number of levels leads to a Cholesky factor with approximately 775,000 non-zero elements, which is an order of magnitude lower.
+In fact, for the `insteval` dataset, the former order leads to approximately 4.5 million non-zero entries in the Cholesky factor, whereas choosing the first random effect to have the largest number of levels leads to a Cholesky factor with approximately 775,000 non-zero elements, which is an order of magnitude lower.
 This translates to an order of magnitude difference between the runtimes for fitting the two versions of the model.
 We demonstrate this with the `insteval` dataset in Appendix -@sec-app-re where fitting the model with the two blocks swapped is almost twenty times slower.
 
@@ -712,12 +712,12 @@ Fortunately the nature of the objective allows for an assessment of whether diff
 Differences in this objective, negative twice the log-likelihood, would be equal to differences in the deviance, if there was a clean definition of the deviance for these models, because the deviance is the negative log-likelihood minus a constant, and the constant will cancel out when considering the difference in the deviances of two models.
 
 In an analysis of deviance this difference in the deviances of a null and an alternative model is assumed to have a $\chi^2$ distribution with degrees of freedom equal to the number of parameters constrained from the full model to generate the null model.
-The point we can carry away from this is that small differences in the log-likelihood, say less than $10^{-4}$, will not affect the conclusion from the test.
-Thus we can consider different model fits representing the same model to be equivalent if the difference in the objective at convergence is less than, say, $10^{-4}$.
+The point we can carry away from this is that, because of the range of the $\chi^2$ distribution, small differences in the log-likelihood, say less than $10^{-4}$, will not affect the conclusion from the test.
+Thus we can consider different model fits representing the same model to be equivalent if the difference in the objective at convergence is less than, say, $10^{-4}$, which is why the value of the objective and related quantities are rounded to four digits after the decimal place in the printed summary of a model.
 
 Moreover, the nature of floating point computation can result in slight differences in the evaluated objective on different processor architectures or different numerical libraries such as BLAS/Lapack implementations.
 The reason for small differences in objective values with different BLAS/Lapack implementations is that "accelerated" BLAS often rearrange the order of operations in an expression so as to minimize cache misses or to use multiple threads of execution.
-Because floating point addition in particular is not necessarily transitive (i.e. the floating point sum $(a + b) + c$ is not guaranteed to be the same as $a + (b + c)$) reordering arithmetic operations in linear algebra calculations can result in slightly different numerical results, which is accepted as part of "the cost of doing business" in large scale numerical computation.
+Because floating point addition, in particular, is not necessarily transitive (i.e. the floating point sum $(a + b) + c$ is not guaranteed to be the same as $a + (b + c)$) reordering arithmetic operations in linear algebra calculations can give slightly different numerical results, which is accepted as part of "the cost of doing business" in large scale numerical computation.
 
 The starting values for the parameters in a model like that fit to the `insteval` data are chosen so that the initial $\mbfLambda$ is the identity matrix.
 Even with this parameter value, for which matrix multiplications by $\mbfLambda$ or its transpose will be exact, the calculated objective value, stored as the `optsum.finitial` property, can vary slightly according to the processor and BLAS implementation used.
@@ -727,7 +727,7 @@ As shown in @sec-app-env, the results shown here were evaluated on an Apple M-se
 m1.optsum.finitial
 ```
 
-On other machines with Intel x86-64 processors and OpenBLAS the same code produced an initial objective value of 242059.14387186486 while using the MKL implementatio of the BLAS produced 242059.14387186494 .
+On other machines with Intel x86-64 processors and OpenBLAS the same code produced an initial objective value of 242059.14387186486 while using the MKL implementation of the BLAS produced 242059.14387186494 .
 Because these values agree to nine decimal places the differences are negligible but they will compound during optimization, which in this case involved about 175 to 200 evaluations and the final parameter estimates will be slightly different on different machines with potentially different BLAS implementations.
 
 ## Application to data from an observational study {#sec-application}
@@ -938,7 +938,6 @@ The time required to fit a model to large data sets is dominated by the time req
 The time for one evaluation is given in the `time per eval` column of @tbl-sizespeed.
 Also given is the number of evaluations to convergence, `n eval`, and the total time to fit the model, `time`.
 The reason for considering `evtime` in addition to `fittime` and `n eval` is because the `time per eval` for one model, relative to other models, is reasonably stable across computers whereas `n eval`, and hence, `time`, can be affected by seemingly trivial variations in function values resulting from different implementations of low-level calculations, such as the BLAS (Basic Linear Algebra Subroutines).
-(Floating point arithmetic is not guaranteed to be associative and custom BLAS implementations may rearrange the order of operations when evaluating products and sums.)
 
 That is, we can't expect to reproduce `n eval` exactly when fitting the same model on different computers or with slightly different versions of software; but we can expect the pattern in `time per eval` with respect to the user and movie cutoffs to be reproducible.
 
