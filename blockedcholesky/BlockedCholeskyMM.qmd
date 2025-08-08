@@ -553,6 +553,68 @@ which maps to the template matrices
 m1.λ
 ```
 
+The full $\mbfLambda_\theta$ matrix, of size $4128\times 4128$ is block diagonal in three blocks,
+corresponding to the three grouping factors; `s`, `d`, and `dept`, for the random effects.
+Because the first two matrices in `m1.λ` are of size $1\times 1$, the first two diagonal blocks will be $\theta_1 * \mbfI_{2972}$ and $\theta_2 * \mbfI_{1128}$.
+The third diagonal block of $\mbfLambda_\theta$ is also a diagonal matrix, because 
+
+```{julia}
+last(m1.λ)
+```
+
+is diagonal.
+This diagonal third block on the diagonal of $\mbfLambda_\theta$, of size $28\times 28$, consists of 14 repetitions of this pattern on the diagonal.
+
+### Constrained versus unconstrained optimization of the objective
+
+Because $\mbfLambda_\theta$ is a scaled version of the lower Cholesky factor of the covariance matrix, $\mbfSigma_\theta$, of the 4128-dimensional random effects random variable $\mcB$ it is customary to constrain its diagonal elements to be non-negative, which, in the case of model `m1`, is equivalent to requiring that all four elements of $\mbftheta$ be non-negative.
+Thus the optimization of the objective with respect to $\mbftheta$ in [lme4]{.pkg} and in early versions of [MixedModels.jl]{.pkg} was performed using a version of Powell's BOBYQA (Bounded Optimisation BY Quadratic Approximation) algorithm (@powell2009bobyqa).
+
+However, it is not necessary to impose the "non-negativity on the diagonal" constraint on $\mbftheta$.
+The objective is well-defined for negative values of components of $\mbftheta$ that occur on the diagonal of $\mbfLambda_\theta$.
+Flipping the sign of one of these "diagonal" elements of $\mbftheta$, e.g.
+
+```{julia}
+(objective(m1), objective!(m1, m1.θ .* [1, 1, -1, 1]))
+```
+
+produces the same value of the objective.
+
+If some of the elements of $\mbftheta$ occur off the diagonal of $\mbfLambda_\theta$, as in the model
+
+```{julia}
+form2 = @formula(y ~ 1 + service + (1|s) + (1|d) + (1 + service|dept));
+m2 = fit(MixedModel, form2, dat; progress=false);
+print(m2)
+```
+
+which has 3 parameters in the last $\lambda$ matrix
+
+```{julia}
+last(m2.λ)
+```
+
+then flipping the sign of a diagonal element requires flipping the signs of all the parameters in that column to maintain the same value of the objective function.
+
+```{julia}
+(objective(m2), objective!(m2, m2.θ .* [1, 1, -1, -1, 1]))
+```
+
+Because an unconstrained optimization is generally simpler than a constrained or bounded optimization we have removed the bounds on the elements of $\mbftheta$ in recent versions of [MixedModels.jl]{.pkg}.
+In the event that the optimizer converges to a parameter vector with a negative diagonal element in one of the $\lambda$ template matrices, we flip the sign of that element and any other elements of $\mbftheta$ in the same column after the optimization.
+Thus we create a "canonical" form of the converged parameter vector, $\hat{\mbftheta}$, corresponding to a $\mbfLambda_\theta$ with non-negative values on the diagonal but without having the burden of performing a bounded or constrained optimization. 
+
+### Analysis of deviance for comparing nested models
+
+The model `m1` is a sub-model of `m2`, corresponding to the constraint $\theta_4 = 0$ in model `m2`.
+Such models can be compared via a likelihood ratio test
+
+```{julia}
+lrtest(m1, m2)
+```
+
+We mention this here because it provides a guideline on how precisely we wish to determine the value of the objective in the optimization, as discussed in @sec-reproducibility.
+
 ### Special role of the [1,1] block {#sec-one-one-block}
 
 The reason for ordering the random-effects terms so that the [1,1] block of $\mbfA$ is as large as possible is because the diagonal or block diagonal structure of this block is preserved in the [1,1] block of $\mbfL$.
