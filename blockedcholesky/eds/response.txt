@@ -1,0 +1,98 @@
+
+Journal of Statistical Software
+⟵ Back to Submissions
+5816 / Bates et al. / Mixed-model Log-likelihood Evaluation Via a Blocked Cholesky Factorization
+
+    Submission
+    Review
+    Copyediting
+    Production 
+
+Submission Files
+
+    Search 
+
+Name 	Date 	Component
+Settings
+35560 jss-replication.tar.gz
+	May 16, 2025 	Replication Materials
+Settings
+35561 BlockedCholeskyMM+jss.pdf
+	May 16, 2025 	PDF Manuscript
+Settings
+35562 MixedModels.jl.tar.gz
+	May 16, 2025 	Software
+
+    Download All Files 
+
+Pre-Review Discussions
+
+    Add discussion 
+
+Name 	From 	Last Reply 	Replies 	Closed
+Comments for the Author 	jstatsoft
+2025-05-21 05:46 PM 	- 	0 	
+Settings
+Configuration information on JSS replication run
+	dmbates
+2025-06-17 04:44 PM 	jstatsoft
+2025-07-02 12:46 PM 	1 	
+Configuration information on JSS replication run
+×Close Panel
+Participants Edit
+
+    JSS Administrator (jstatsoft)
+    Douglas Bates (dmbates)
+
+Messages
+Note 	From
+
+Our apologies for the delay in preparing a revision but we are having difficulty reproducing the results you obtained when attempting to reproduce ours.
+
+Your comments did motivate us to explain that we are describing evaluation of the objective.  Actual model fitting requires both the evaluation of the objective and a method of optimizing this objective and there are several choices and settings that will affect the optimization process.
+
+Generally we set the tolerance on the objective itself (labelled -2 logLik in the printed information) so that the first 4 digits after the decimal point are reliable.  This objective is on the scale of the deviance.  As differences in deviance in an analysis of deviance are compared to quantiles of a chi-squared distribution, changes beyond the fourth decimal place would be generally considered negligible.  The converged objective in your results ends in .6017 whereas ours ends in .6016.  The value at convergence will change with processor type, BLAS implementation, operating system, optimizer implementation, and optimizer algorithm but a typical value is 237648.6016477919 which is close to values that would round to 237648.6017.
+
+However, we have tried several combinations of architectures (x86_64, Apple M-series), operating systems (Linux, MacOS, Windows), BLAS implementations (OpenBLAS, AppleAccelerate, MKL) using our own machines and on github continuous integration facilities but we haven't been able to duplicate your results.  Could you please provide us with the output of
+
+using InteractiveUtils; versioninfo()
+
+using Pkg; Pkg.status()
+
+using LinearAlgebra; BLAS.get_config()
+
+on the machine and Julia version where you ran our script?  If you prefer I can produce a new script including this information for you to run.
+	dmbates
+2025-06-17 04:44 PM
+
+Julia Version 1.11.5
+Commit 760b2e5b739 (2025-04-14 06:53 UTC)
+Build Info:
+Official https://julialang.org/ release
+Platform Info:
+OS: Linux (x86_64-linux-gnu)
+CPU: 4 × Intel(R) Xeon(R) Gold 6154 CPU @ 3.00GHz
+WORD_SIZE: 64
+LLVM: libLLVM-16.0.6 (ORCJIT, skylake-avx512)
+Threads: 1 default, 0 interactive, 1 GC (on 4 virtual cores)
+Status `~/5816/jss-replication/Project.toml`
+⌅ [cbdf2221] AlgebraOfGraphics v0.10.8
+[13e28ba4] AppleAccelerate v0.4.1
+[69666777] Arrow v2.8.0
+[336ed68f] CSV v0.10.15
+⌅ [13f3f980] CairoMakie v0.13.10
+[0ca39b1e] Chairmarks v1.3.1
+[a93c6f00] DataFrames v1.7.0
+[33e6dc65] MKL v0.9.0
+[ff71e718] MixedModels v4.35.2
+[08abe8d2] PrettyTables v2.4.0
+[6f49c342] RCall v0.14.8
+[856f044c] MKL_jll v2025.0.1+1
+[de0858da] Printf v1.11.0
+[2f01184e] SparseArrays v1.11.0
+Info Packages marked with ⌅ have new versions available but compatibility constraints restrict them from upgrading. To see why use `status --outdated`
+
+Attached the output I obtained as well as the information as written out by Julia.
+code.txt info.txt 	jstatsoft
+2025-07-02 12:46 PM
+Add Message
