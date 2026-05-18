@@ -1,0 +1,6 @@
+/.luarc.json
+/Manifest*.toml
+/jds.bst
+/jdsart.cls
+/*.ipynb
+/*.pdf
