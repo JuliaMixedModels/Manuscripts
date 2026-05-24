@@ -18,21 +18,21 @@ Control: ctrl
 
 Scaled residuals: 
      Min       1Q   Median       3Q      Max 
--2.99959 -0.74769  0.04009  0.77283  3.11345 
+-2.99960 -0.74769  0.04009  0.77283  3.11346 
 
 Random effects:
  Groups   Name        Variance Std.Dev.
- s        (Intercept) 0.105295 0.32449 
- d        (Intercept) 0.262425 0.51227 
- dept     (Intercept) 0.002579 0.05079 
- dept.1   service     0.023405 0.15299 
- Residual             1.385009 1.17686 
+ s        (Intercept) 0.105296 0.3245  
+ d        (Intercept) 0.262430 0.5123  
+ dept     (Intercept) 0.002581 0.0508  
+ dept.1   service     0.023398 0.1530  
+ Residual             1.385008 1.1769  
 Number of obs: 73421, groups:  s, 2972; d, 1128; dept, 14
 
 Fixed effects:
             Estimate Std. Error t value
-(Intercept)  3.27765    0.02350 139.463
-service     -0.05074    0.04399  -1.153
+(Intercept)  3.27765    0.02350 139.448
+service     -0.05074    0.04399  -1.154
 > tmbmod <- glmmTMB(form, dat)
 > summary(tmbmod)
  Family: gaussian  ( identity )
@@ -67,14 +67,14 @@ Signif. codes:  0 ‘***’ 0.001 ‘**’ 0.01 ‘*’ 0.05 ‘.’ 0.1 ‘ ’
 +   glmmTMB = glmmTMB(form, dat), times = 6
 + )
 Unit: seconds
-    expr      min       lq     mean   median       uq      max neval cld
-    lmer 17.61183 17.61670 17.81537 17.78631 18.01708 18.07398     6  a 
- glmmTMB 23.38106 23.47987 23.56080 23.52521 23.62934 23.82409     6   b
+    expr      min       lq     mean   median       uq      max neval
+    lmer 22.62092 23.02855 23.32994 23.33281 23.72828 23.93627     6
+ glmmTMB 27.76050 28.11070 28.38166 28.20378 28.31458 29.69666     6
 > # R and package versions
 > R.version.string
-[1] "R version 4.5.0 (2025-04-11)"
+[1] "R version 4.6.0 (2026-04-24)"
 > packageVersion("lme4")
-[1] ‘1.1.37’
+[1] ‘2.0.1’
 > packageVersion("glmmTMB")
-[1] ‘1.1.11’
+[1] ‘1.1.14’
 > 

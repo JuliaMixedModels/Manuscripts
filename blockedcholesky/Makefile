@@ -7,7 +7,7 @@ preview:
 	quarto preview $(DOCNAME).qmd
 
 render:
-	quarto render $(DOCNAME).qmd --to jss-pdf+jss
+	quarto render $(DOCNAME).qmd --to jds-pdf
 
 render-arxiv:
 	sed -i'.bak' -e '/city:/d' $(DOCNAME).qmd

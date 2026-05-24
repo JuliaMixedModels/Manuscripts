@@ -4,3 +4,5 @@
 /jdsart.cls
 /*.ipynb
 /*.pdf
+/data/ml-32m.zip
+/data/ratings.arrow
