@@ -545,7 +545,7 @@ The optimization of the profiled objective required about 175 evaluations of the
 @be fit($MixedModel, $form, $dat; progress=false)  seconds=8
 ```
 
-The environment in which these benchmarks were performed is described in @sec-app-env.
+The environment in which these benchmarks were performed is described in the supplemental materials.
 Note that we use the Apple Accelerate implementation of the BLAS/Lapack routines on computers with Apple M-series processors and Intel's MKL BLAS implementation on computers with x86_64 processors.
 In Julia hot-swapping BLAS implementations is as easy as loading the appropriate package, such as {{< pkg AppleAccelerate.jl >}} or {{< pkg MKL.jl >}}.
 
@@ -754,9 +754,8 @@ CairoMakie.activate!(; type="pdf");
 When performing a block-wise Cholesky factorization, the diagonal structure of the $[1,1]$ block from the input matrix is preserved in the Cholesky factor, but the diagonal structure for the subsequent diagonal blocks (e.g. [2,2]) is not preserved
 (except in the case that the levels of the first grouping factor are strictly nested within the levels of the second grouping factor).
 While the models are theoretically identical, the latter is computationally more efficient as the largest diagonal block preserves its structure.
-In fact, for the `insteval` dataset, the former order leads to approximately 4.5 million non-zero entries in the Cholesky factor, whereas choosing the random effect with the largest number of levels leads to a Cholesky factor with approximately 775,000 non-zero elements, which is an order of magnitude lower.
-This translates to an order of magnitude difference between the runtimes for fitting the two versions of the model.
-We demonstrate this with the `insteval` dataset in the supplemental materials where we show that fitting the model with the order of these two blocks swapped is almost twenty times slower.
+In fact, for the `insteval` dataset, the former order leads to approximately 4.5 million non-zero entries in the Cholesky factor, whereas choosing as first the random effect with the largest number of levels leads to a Cholesky factor with approximately 775,000 non-zero elements, which is an order of magnitude lower.
+In the supplemental materials we show that this change gives an order of magnitude difference between the runtimes for fitting the two versions of the model for the `insteval` data.
 
 Because the [1,1] block of $\mbfL$ is diagonal and the [1,1] block of $\mbfLambda_\theta$ is a multiple of the identity, the remaining blocks in the first column of blocks of $\mbfL$ will have exactly the same sparsity structure as the corresponding blocks of $\mbfA$.
 For example, the [2,1] block of $\mbfA$ is stored as a sparse matrix because only about 2% (73421) of the $2792\times1128=3352416$ elements of that matrix are non-zero.
@@ -859,7 +858,7 @@ One way of dealing with the extreme imbalance in the number of observations per 
 ### Models fit with lower bounds on ratings per user and per movie {#sec-lrgobsmods}
 
 We fit a simple model to this dataset using different thresholds on the number of ratings per movie and the number of ratings per user.
-These fits were performed on a desktop computer with a generous amount of memory (96 GiB) and using 8 threads and the Intel Math Kernel Library (MKL) for numerical linear algebra.
+These fits were performed on a cloud instance with a generous amount of memory (128 GiB) and using 12 threads and the Intel Math Kernel Library (MKL) for numerical linear algebra.
 The results are summarized in @tbl-sizespeed.
 
 ```{julia}
@@ -878,7 +877,7 @@ sizespeed = CSV.read("./data/sizespeed.csv", DataFrame; downcast=true);
 
 ```{julia}
 #| echo: false
-#| tbl-cap: Summary of results for the `ml-32m` data modeling run speeds.  The `mc` column is the movie cutoff, `uc` is the user cutoff, `nratings`, `nusers` and `nmvie` are, respectively, the number of observations, users and movies in the reduced data set, `modelsz` and `L22sz` are the model size and `L[2,2]` size (in GiB), `nv` is the number of objective function evaluations until convergence, `fittime` and `evtime` are the number of seconds required to fit the model or to perform a single objective function evaluation.
+#| tbl-cap: Summary of results for the `ml-32m` data modeling run speeds.  The `mc` column is the movie cutoff, `uc` is the user cutoff, `nratings`, `nusers` and `nmvie` are, respectively, the number of observations, users and movies in the reduced data set, `modelsz` and `L22sz` are the model size and `L[2,2]` size (in GiB), `nv` is the number of objective function evaluations until convergence, `fittime` and `mnevtm` are the number of seconds required to fit the model and the mean time to perform a single objective function evaluation.
 #| label: tbl-sizespeed
 sizespeed = CSV.read("./data/sizespeed.csv", DataFrame; downcast=true)
 show(sizespeed; row_labels=nothing, eltypes=false, allrows=true, summary=false)
@@ -990,25 +989,25 @@ In general, for models with scalar random effects for two incompletely crossed g
 ### Speed of log-likelihood evaluation
 
 The time required to fit a model to large data sets is dominated by the time required to evaluate the log-likelihood during the optimization of the parameter estimates.
-The time for one evaluation is given in the `evtime` column of @tbl-sizespeed.
+The mean time per evaluation is given in the `mnevtm` column of @tbl-sizespeed.
 Also given is the number of evaluations to convergence, `nv`, and the total time to fit the model, `fittime`.
-The reason for considering `evtime` in addition to `fittime` and `nv` is because the `evtime` for one model, relative to other models, is reasonably stable across computers whereas `nv`, and hence, `fittime`, can be affected by seemingly trivial variations in function values resulting from different implementations of low-level calculations, such as the BLAS (Basic Linear Algebra Subroutines).
+The reason for considering `mnevtm` in addition to `fittime` and `nv` is because the `mnevtm` for one model, relative to other models, is reasonably stable across computers whereas `nv`, and hence, `fittime`, can be affected by seemingly trivial variations in function values resulting from different implementations of low-level calculations, such as the BLAS (Basic Linear Algebra Subroutines).
 (Floating point arithmetic is not guaranteed to be associative and custom BLAS implementations may rearrange the order of operations when evaluating products and sums.)
 
-That is, we can't expect to reproduce `nv` exactly when fitting the same model on different computers or with slightly different versions of software; but we can expect the pattern in `evtime` with respect to the user and movie cutoffs to be reproducible.
+That is, we can't expect to reproduce `nv` exactly when fitting the same model on different computers or with slightly different versions of software; but we can expect the pattern in `mnevtm` with respect to the user and movie cutoffs to be reproducible.
 
-As shown in @fig-evtimevsl22 the evaluation time for the objective is predominantly a function of the size of the `[2,2]` block of `L`.
+As shown in @fig-mnevtmvsl22 the evaluation time for the objective is predominantly a function of the size of the `[2,2]` block of `L`.
 
 ```{julia}
 #| echo: false
 #| fig-cap: "Evaluation time for the objective (s) versus size of the [2,2] block of L (GiB)"
-#| label: fig-evtimevsl22
+#| label: fig-mnevtmvsl22
 #| warning: false
 draw(
   data(sizespeed) *
   mapping(
     :L22sz => "Size of [2,2] block of L (GiB)",
-    :evtime => "Time for one evaluation of objective (s)",
+    :mnevtm => "Time for one evaluation of objective (s)",
     color = :uc => renamer([20 => "≥20 ratings", 40 => "≥40 ratings", 80 => "≥80 ratings"])  => "per user",) *
     visual(ScatterLines);
     legend = (; position = :bottom, titleposition = :left),
@@ -1113,102 +1112,3 @@ Finally, we would like to thank the {{< proglang Julia >}} community for bugfixe
 :::{#refs}
 
 :::
-
-{{< pagebreak >}}
-
-<!-- https://github.com/quarto-dev/quarto-cli/discussions/4581 -->
-\appendix
-\renewcommand{\thefigure}{A\arabic{figure}}
-\renewcommand{\thetable}{A\arabic{table}}
-\setcounter{figure}{0}
-\setcounter{table}{0}
-
-# Appendix {.appendix}
-
-## Comparative benchmarks with lme4 and glmmTMB
-
-We benchmarked fitting the same model as in @sec-structure using the {{< pkg lme4 >}} and {{< pkg glmmTMB >}} packages for {{< proglang R >}}.
-
-```
-{{< include scripts/benchmarkoutput.txt >}}
-```
-
-As of writing, an attempt to fit the `ml-32m` example using {{< pkg glmmTMB >}} has been running for more than a week on the machine that was used for the {{< pkg MixedModels.jl >}} timings and has not yet completed.
-Given otherwise similar performance, we do not expect {{< pkg lme4 >}} to perform any better than {{< pkg glmmTMB >}}.
-
-## Ordering of the random effects {#sec-app-re .appendix}
-
-To demonstrate the effect of ordering of the random effects, we fit the `insteval` model after a different ordering for the random effects.
-We first recreate a copy of the `insteval` model
-
-```{julia}
-#| eval: false
-m2 = fit(
-  MixedModel,
-  @formula(y ~ 1 + service + (1 | d) + (1 | s) + (1 | dept) + (0 + service | dept)),
-  dat,
-  progress=false    # suppress the display of a progress bar
-);
-```
-\noindent
-To demonstrate, we must manually reorder the random effects then recreate the augmented matrix $\mbfA$ and storage for the Cholesky factor $\mbfL$ as follows:
-```{julia}
-#| eval: false
-m2.reterms[1:2] = m2.reterms[2:-1:1]; # swap elements 1 and 2
-
-A, L = MixedModels.createAL(m2.reterms, m2.Xymat); # recreate A, L
-
-copyto!(m2.A, A); # set A
-copyto!(m2.L, L); # set L
-```
-\noindent
-Now we can refit the model:
-
-```{julia}
-print(refit!(m2; progress = false))
-```
-
-This fit is equivalent to that of `m1`, taking a comparable number of evaluations of the objective before convergence is declared
-
-```{julia}
-length.((m1.optsum.fitlog, m2.optsum.fitlog))
-```
-\noindent
-The number of evaluations is not exactly the same because changes in the order of arithmetic operations during the Cholesky factorization can produce slightly different evaluations of the objective, resulting in slightly different paths to convergence.
-For example, the first evaluations of the objective for each model, at the parameter vector $\mbftheta=[1.,1.,1.,1.]$, are
-
-```{julia}
-(m1.optsum.finitial, m2.optsum.finitial)
-```
-
-The difference in fitting times is dominated by the difference in the time to evaluate the objective
-
-```{julia}
-@b objective!($m2, $(m2.optsum.final))
-```
-\noindent
-which is an order of magnitude slower than evaluating the objective for the original model `m1`
-
-```{julia}
-@b objective!($m1, $(m1.optsum.final))
-```
-
-### Computing environment {#sec-app-env}
-
-The computing environment for all the timings, except for the models fit to the `ml-32m` data, was
-
-```{julia}
-versioninfo()
-```
-\noindent
-with an accelerated BLAS library
-
-```{julia}
-BLAS.get_config()
-```
-
-The versions of the Julia packages used are
-
-```{julia}
-using Pkg; Pkg.status()
-```
