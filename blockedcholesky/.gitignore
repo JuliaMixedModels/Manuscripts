@@ -1,0 +1,8 @@
+/.luarc.json
+/Manifest*.toml
+/jds.bst
+/jdsart.cls
+/*.ipynb
+/*.pdf
+/data/ml-32m.zip
+/data/ratings.arrow

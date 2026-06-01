@@ -1,0 +1,278 @@
+---
+title: "Note on mixed model calculations"
+author:
+  - name: Douglas Bates
+    email: dmbates@gmail.com
+    orcid: 0000-0001-8316-9503
+    affiliation:
+      - name: University of Wisconsin - Madison
+        city: Madison
+        state: WI
+        url: https://www.wisc.edu
+        department: Statistics
+  - name: Phillip Alday
+    email: me@phillipalday.com
+    orcid: 0000-0002-9984-5745
+    affiliation:
+      - name: Beacon Biosignals
+        url: https://beacon.bio
+date: last-modified
+date-format: iso
+toc: true
+bibliography: bibliography.bib
+number-sections: true
+engine: julia
+julia:
+  exeflags:
+    - -tauto
+    - --project=@.
+format:
+  html:
+    toc: true
+    toc-location: right
+    embed-resources: true
+---
+
+## Introduction {#sec-intro}
+
+This note is to reproduce the simulated two-factor anova model in @Zhou03042019 and to fit it using the [MixedModels.jl](https://github.com/JuliaStats/MixedModels.jl) package.
+I would have included comparative results from the [VarianceComponentModels.jl](https://github.com/OpenMendel/VarianceComponentModels.jl) package but I was unable to install it, even on the long-term-support (lts) version of Julia.
+(Repairs may be as simple as merging the [CompatHelper PR](https://github.com/OpenMendel/VarianceComponentModels.jl/pull/22) but I didn't check.)
+
+The model incorporates two random effects factors and their interaction.
+In the simulation the number of levels of the grouping factors for the random effects is set at 5 for `a` and `b` so that the number of levels for the interaction term, `ab`, is 25.
+The number of replicates at each level of the interaction is the parameter `c`.
+
+We note that only having five levels each of the grouping factors $\mathbf{a}$ and $\mathbf{b}$ may result in an unstable estimation situation, because it is difficult to estimate a variance from only five distinct pieces of information.
+In such cases, as we will see below, the estimates of variance components can converge to zero.
+
+Convergence to zero for a variance component is not a problem when using [MixedModels.jl](https://github.com/JuliaStats/MixedModels.jl) because it was designed with this possibility in mind.
+
+## Setting up the simulation {#sec-setup}
+
+We create a `DataFrame` corresponding to the experimental design with a placeholder response vector then create a `LinearMixedModel` without fitting it then use the `simulate!` function in the `MixedModels` package to simulate the response given values of the parameter.
+
+Load the packages to be used
+
+```{julia}
+#| label: loadpackages
+using Chairmarks          # to benchmark function executions
+using DataFrames
+using MixedModels
+using PooledArrays        # similar to factor in R
+using Random              # random number generators
+using RCall               # call R from Julia
+```
+
+Create a function to generate a `DataFrame` with a numeric response, `y`, and `PooledArrays`, `a`, `b`, and `ab`.
+
+```{julia}
+#| label: definedesign
+#| output: false
+"""
+    design(c; a=5, b=5)
+
+Return a DataFrame with columns y, a, b, and ab in a two-factor design with interaction 
+"""
+function design(c::Integer; a::Integer=5, b::Integer=5)
+    signed, compress = true, true    # used as named arguments to PooledArray()
+    av = repeat(string.('a':'z')[1:a], inner=b * c)
+    bv = repeat(string.('A':'Z')[1:b], inner=c, outer=b)
+    return DataFrame(
+        y = zeros(a * b * c),
+        a = PooledArray(av; signed, compress),
+        b = PooledArray(bv; signed, compress),
+        ab = PooledArray(av .* bv; signed, compress),
+    )
+end
+```
+
+For `c = 5` the data frame is
+
+```{julia}
+#| label: d05
+d05 = design(5)
+```
+
+## Simulating a single instance {#sec-simulating}
+
+We define a formula, `form`, that provides for scalar fixed-effects and scalar random effects for `a`, `b`, and `ab`.
+Because this binding is declared to be `const` we avoid declaring it more than once.
+
+```{julia}
+#| output: false
+#| warn: false
+if !@isdefined(form)
+    const form = @formula(y ~ 1 + (1 | a) + (1 | b) + (1 | ab))
+end
+m05 = LinearMixedModel(form, d05)
+```
+
+The `simulate!` function modifies this model by overwriting the place-holder response vector with the simulated response, in the model object only, not in the original data frame, `d05`.
+The parameters are set, as in @Zhou03042019, to $\mathbf{\beta}=[1]$, $\sigma=1$ (written $\sigma_e$ in @Zhou03042019) and
+values of $\mathbf{\theta}=\left[\sigma_1/\sigma, \sigma_2/\sigma, \sigma_3/\sigma\right]$ corresponding to the (constant)ratios $\sigma^2_i/\sigma^2_e, i=1,2,3$ in @Zhou03042019.
+
+The first set of $\mathbf{\theta}$ values is zeros, as in @Zhou03042019.
+
+```{julia}
+rng = Xoshiro(6345789)              # initialize a random number generator
+print(fit!(simulate!(rng, m05; β=[1.0], σ=1.0, θ=zeros(3))))
+```
+
+To be able to reproduce this fit we copy the simulated response vector, `m05.y`, into `d05.y`.
+
+```{julia}
+#| label: copym05ytod05y
+#| output: false
+copyto!(d05.y, m05.y)
+```
+
+It is not surprising that estimates of two of the three components of $\mathbf{\theta}$ are zero, as the response was simulated from $\mathbf{\theta}=[0,0,0]$.
+
+The `optsum` property of the fitted model, `m05`, contains information on the progress of the iterative optimization to obtain the mle's.
+
+```{julia}
+#| label: showoptsum
+m05.optsum
+```
+
+In this case it took 55 function evaluations to declare convergence but that number will depend on the convergence criteria set.
+We use rather stringent criteria.
+In particular, `ftol_rel`, which appears to be the criterion used in @Zhou03042019, is, by default, set to $10^{-12}$ in `MixedModels.jl`, as compared to $10^{-8}$ in @Zhou03042019.
+
+The progress of the iterations is recorded in the `fitlog` table in the `optsum` property.
+
+```{julia}
+#| label: fitlog
+m05.optsum.fitlog
+```
+
+If we look at the last 15 values of the objective we can see that the optimizer would have been declared to have converged in 15 fewer function evaluations if `ftol_rel` was set to $10^{-8}$.
+
+```{julia}
+#| label: lastobj
+last(m05.optsum.fitlog.objective, 15)
+```
+
+When comparing the number of iterations between algorithms, bear in mind that the optimizer used here reports the number of evaluations of the objective.
+Other algorithms may count iterations that involve more than one evaluation of the objective or may involve gradient evaluations.
+
+## Benchmarking  {#sec-benchmark}
+
+For this model, and for all the other models in the simulation, the blocked Cholesky factor, $\mathbf{L}$ to be updated for each evaluation of the profiled log-likelihood has the structure
+
+```{julia}
+#| label: Blockdesc
+BlockDescription(m05)
+```
+
+That is, regardless of the value of `c` in the simulation, the updates for evaluating the profiled log-likelihood are for a blocked lower Cholesky factor of size $37\times 37$ of which the upper left $25\times 25$ block is diagonal and trivial to update.
+
+As a sparse matrix this would have the form
+
+```{julia}
+sparseL(m05; full=true)
+```
+
+but it is stored as a blocked triangular matrix.
+The convergence to $\theta_1=0, \theta_2=0$ makes this matrix appear to be more sparse than it, in fact, is.
+Generally there would be non-zero values in the last 12 rows and first 30 columns.
+
+The update operation is very fast
+
+```{julia}
+#| label: bnchmrkupdate
+@b m05 objective(updateL!(_))
+```
+
+as is the fitting procedure from start to finish
+
+```{julia}
+#| label: bnchmrkfit
+@b fit(MixedModel, $form, $d05)
+```
+
+and the `m05` object is quite small
+
+```{julia}
+#| label: modelsize
+Base.summarysize(m05)
+```
+
+We now fit the same model to this response with the `lme4` package in [R](https://www.r-project.org).
+
+First, transfer the data frame and the formula to R
+
+```{julia}
+#| output: false
+@rput d05
+@rput form
+```
+
+then fit the model
+
+```{julia}
+#| label: Rfit
+#| warning: false
+R"m05 <- lme4::lmer(form, d05, REML=FALSE, control=lme4::lmerControl(calc.derivs=FALSE))"
+R"summary(m05)"
+```
+
+Notice that the convergence is to a slightly different parameter vector but a similar deviance.
+The main difference in the converged parameter estimates is in $\sigma_2$, which is $1.426\times10^{-5}$ here and zero in the MixedModels fit.
+But random effects with a standard deviation that small are negligible.
+
+```{julia}
+#| label: Rfitdeviance
+deviance(m05)
+```
+
+Fitting this model in `R` using `lme4::lmer` is much slower than using `MixedModels.jl`.
+
+```{julia}
+#| warning: false
+@b R"lme4::lmer(form, d05, REML=FALSE, lme4::lmerControl(calc.derivs=FALSE))"
+```
+
+### Data simulated from non-zero $\theta$ values
+
+```{julia}
+fit!(simulate!(rng, m05; β=[1.], σ=1., θ=ones(3)))
+```
+
+```{julia}
+m05.optsum
+```
+
+## Larger data sets {#sec-larger}
+
+Increasing `c`, the number of replicates at each level of `ab` does not substantially increase the size of the model
+
+```{julia}
+#| label: m50
+m50 = fit!(
+    simulate!(rng, LinearMixedModel(form, design(50)); β=ones(1), σ=1.0, θ=ones(3))
+)
+print(m50)
+```
+
+```{julia}
+Base.summarysize(m50)
+```
+
+because the size of `L` and `A` are the same as before
+
+```{julia}
+BlockDescription(m50)
+```
+
+and the elapsed time per evaluation of the objective is essentially the same as for the smaller model.
+
+```{julia}
+@b m50 objective(updateL!(_))
+```
+
+### References {.unnumbered}
+
+::: {#refs}
+:::

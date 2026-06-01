@@ -1,0 +1,48 @@
+julia> BLAS.get_config()
+LinearAlgebra.BLAS.LBTConfig
+Libraries: 
+├ [ILP64] libmkl_rt.so
+└ [ LP64] libmkl_rt.so
+
+julia> versioninfo()
+Julia Version 1.12.6
+Commit 15346901f00 (2026-04-09 19:20 UTC)
+Build Info:
+  Official https://julialang.org release
+Platform Info:
+  OS: Linux (x86_64-linux-gnu)
+  CPU: 32 × AMD EPYC-Milan Processor
+  WORD_SIZE: 64
+  LLVM: libLLVM-18.1.7 (ORCJIT, znver3)
+  GC: Built with stock GC
+Threads: 12 default, 1 interactive, 12 GC (on 32 virtual cores)
+
+julia> versioninfo(verbose=true)
+Julia Version 1.12.6
+Commit 15346901f00 (2026-04-09 19:20 UTC)
+Build Info:
+  Official https://julialang.org release
+Platform Info:
+  OS: Linux (x86_64-linux-gnu)
+      Ubuntu 26.04 LTS
+  uname: Linux 7.0.0-15-generic #15-Ubuntu SMP PREEMPT_DYNAMIC Wed Apr 22 16:06:43 UTC 2026 x86_64 unknown
+  CPU: AMD EPYC-Milan Processor: 
+                 speed         user         nice          sys         idle          irq
+       #1-32     0 MHz    1992427 s         11 s       3398 s    7530497 s          0 s  
+  Memory: 122.82613754272461 GB (123986.328125 MB free)
+  Uptime: 297761.02 sec
+  Load Avg:  0.02  0.01  0.0
+  WORD_SIZE: 64
+  LLVM: libLLVM-18.1.7 (ORCJIT, znver3)
+  GC: Built with stock GC
+Threads: 12 default, 1 interactive, 12 GC (on 32 virtual cores)
+
+(ml32m) pkg> st
+Status `~/ml32m/Project.toml`
+  [69666777] Arrow v2.8.1
+  [336ed68f] CSV v0.10.16
+  [a93c6f00] DataFrames v1.8.2
+  [ff71e718] MixedModels v5.5.1
+  [7e9fb7ac] MixedModelsDatasets v0.1.2
+  [a5390f91] ZipFile v0.10.1
+  [f43a241f] Downloads v1.7.0
