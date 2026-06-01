@@ -26,8 +26,8 @@
     jupyter nbconvert --no-prompt --to script BlockedCholeskyMM.ipynb
     mv BlockedCholeskyMM.txt BlockedCholeskyMM.jl
     ```
-- Comparison fits in R using the `lme4` and `glmmTMB` packages can be created with
-    ```bash
-    make rbench
-    ```
-- Because the ml-32m dataset cannot be redistributed, reproduction of the results in Table 4, require a separate script, `ml-32results.jl`.  Be aware that fitting very large models like this requires a computer with a large amount of memory (64 GiB is recommended) and can take a long time.
+- Alternatively, `Quarto mode` for editors such as [VSCode](https://code.visualstudio.com) or [Positron](https://positron.posit.co) provide the ability to interactively evaluate code chunks from a Quarto document.
+
+- Comparison fits in R using the `lme4` and `glmmTMB` packages are shown in `Environment.pdf` generated from `Environment.qmd`
+
+- Because the ml-32m dataset cannot be redistributed, reproduction of the results in Table 4, require a separate script, `scripts/ml32-download.jl` to download the data, create the ratings table, and save it in the [Arrow](https://arrow.apache.org) format. The evaluation of the models is performed by `ml32-timefit.jl` **but** be aware that fitting very large models like this requires a computer with a large amount of memory (64 GiB is recommended) and can take a long time.  It took roughly 18 hours for all the model fits on a cloud compute instance with the characteristics shown in `config.txt`.
