@@ -755,7 +755,7 @@ When performing a block-wise Cholesky factorization, the diagonal structure of t
 (except in the case that the levels of the first grouping factor are strictly nested within the levels of the second grouping factor).
 While the models are theoretically identical, the latter is computationally more efficient as the largest diagonal block preserves its structure.
 In fact, for the `insteval` dataset, the former order leads to approximately 4.5 million non-zero entries in the Cholesky factor, whereas choosing as first the random effect with the largest number of levels leads to a Cholesky factor with approximately 775,000 non-zero elements, which is an order of magnitude lower.
-In the supplemental materials we show that this change gives an order of magnitude difference between the runtimes for fitting the two versions of the model for the `insteval` data.
+In practice this change gives an order of magnitude difference between the runtimes for fitting the two versions of the model for the `insteval` data.
 
 Because the [1,1] block of $\mbfL$ is diagonal and the [1,1] block of $\mbfLambda_\theta$ is a multiple of the identity, the remaining blocks in the first column of blocks of $\mbfL$ will have exactly the same sparsity structure as the corresponding blocks of $\mbfA$.
 For example, the [2,1] block of $\mbfA$ is stored as a sparse matrix because only about 2% (73421) of the $2792\times1128=3352416$ elements of that matrix are non-zero.
@@ -763,7 +763,7 @@ The [2,1] block of $\mbfL$ has exactly the same sparsity structure because each 
 
 # Application to data from an observational study {#sec-application}
 
-We consider a large observational study -- ratings of movies by users of [movielens.org](https://movielens.org) made available at the [grouplens.org download site](https://grouplens.org/datasets/movielens) [@Harper2016] as *MovieLens 32M Dataset* (`ml-32m`), consisting of roughly 32 million ratings of over 80,000 movies by over 200,000 users.
+We consider a large observational study -- ratings of movies by users of [movielens.org](https://movielens.org) made available at the [grouplens.org download site](https://grouplens.org/datasets/movielens) [@Harper2016] as the *MovieLens 32M Dataset* (`ml-32m`), consisting of roughly 32 million ratings of over 80,000 movies by over 200,000 users.
 The purpose of this section is to study which dimensions of the data have the greatest effect on the amount of memory used to represent the model and the time required to fit a model.
 To do so we use a simple model:
 
@@ -782,6 +782,7 @@ The `ratings.csv` file in the `ml-32m.zip` file downloaded from the Grouplens si
 Creating a `ratings` data frame from this file and counting the number of ratings for each movie id provides the `movies` data frame with columns `movieId` and `mnrtngs`.
 Similarly counting the number of ratings for each user provides the `users` data frame with columns `userId` and `unrtngs`.
 Joining these two derived data frames with the original `ratings` data frame (on `movieId` and `userId`, respectively) allows for the `ratings` data frame to be subsetted according to a minimum number of ratings per user and/or per movie.
+The supplemental materials contain a <<{ proglang Julia }>> script, `ml32-download.jl` to perform the downloading and extraction of the csv file and creation of the subsequent tables. 
 
 ```{julia}
 #| echo: false
@@ -897,7 +898,7 @@ A glance at @tbl-sizespeed shows that the number of users is essentially a funct
 ```{julia}
 #| echo: false
 #| label: fig-nratingsbycutoff
-#| fig-cap: "Number of ratings (left) and movies (right) in reduced table by movie cutoff and by user cutoff.  There are three lines in the right panel but they are close to being superimposed."
+#| fig-cap: "Number of ratings (left) and movies (right) in reduced table by movie cutoff and by user cutoff.  There are three lines in the right panel but they are essentially superimposed."
 #| warning: false
 
 function siformat(x)
@@ -994,7 +995,8 @@ Also given is the number of evaluations to convergence, `nv`, and the total time
 The reason for considering `mnevtm` in addition to `fittime` and `nv` is because the `mnevtm` for one model, relative to other models, is reasonably stable across computers whereas `nv`, and hence, `fittime`, can be affected by seemingly trivial variations in function values resulting from different implementations of low-level calculations, such as the BLAS (Basic Linear Algebra Subroutines).
 (Floating point arithmetic is not guaranteed to be associative and custom BLAS implementations may rearrange the order of operations when evaluating products and sums.)
 
-That is, we can't expect to reproduce `nv` exactly when fitting the same model on different computers or with slightly different versions of software; but we can expect the pattern in `mnevtm` with respect to the user and movie cutoffs to be reproducible.
+That is, we can't expect to reproduce `nv` exactly when fitting the same model to the same data but on different computers or with slightly different versions of software.
+However, we can expect the pattern in `mnevtm` with respect to the user and movie cutoffs to be reproducible.
 
 As shown in @fig-mnevtmvsl22 the evaluation time for the objective is predominantly a function of the size of the `[2,2]` block of `L`.
 
