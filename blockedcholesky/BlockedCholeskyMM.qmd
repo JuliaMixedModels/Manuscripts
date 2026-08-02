@@ -105,7 +105,7 @@ abstract: |
   @bates.maechler.etal:2015 described the evaluation of the profiled log-likelihood of a linear mixed-effects model by updating a sparse, symmetric positive-definite matrix and computing its Cholesky factor, as implemented in the {{< pkg lme4 >}} package for {{< proglang R >}}.
   Here we present enhancements to the derivation and theoretical presentation of the result and to its implementation using a blocked Cholesky factorization in the {{< pkg MixedModels.jl >}} package for {{< proglang Julia >}} [@Bezanson2017].
   The gain in computational efficiency is primarily due to three factors:
-  (1) the new derivation allows us to compute the penalized residual sum of squares without computing the conditional estimates of the fixed-effects parameters and the conditional modes of the random effects at each optimization step,
+  (1) the new derivation allows us to compute the penalized sum of squared residuals without computing the conditional estimates of the fixed-effects parameters and the conditional modes of the random effects at each optimization step,
   (2) the blocked Cholesky representation and careful ordering of the random effects terms reduces the amount of "fill-in" that occurs during the Cholesky factorization, and
   (3) the multiple dispatch feature of the {{< proglang Julia >}} language allows us to use specialized algorithms for different kinds of matrices instead of relying on generic algorithms during the Cholesky factorization.
   To show the effectiveness of the blocked Cholesky approach we use it to fit a linear mixed model to over 32 million ratings of movies in the MovieLens `ml-32m` [@Harper2016] data set.
@@ -498,7 +498,7 @@ About 43% of the evaluations were from service courses.
 using AlgebraOfGraphics, CairoMakie, Printf, SparseArrays
 using Arrow, Chairmarks, CSV, DataFrames, LinearAlgebra, MixedModels
 dat = DataFrame(MixedModels.dataset("insteval"))
-dat.service = (dat.service .== "Y")         # convert to Boolean values
+dat.service = (dat.service .== "Y")         # convert service to a Boolean vector
 show(
   describe(dat, :min, :max, :mean, :nunique, :eltype);
   row_labels=nothing,
@@ -526,7 +526,7 @@ We will use random effects to model the variation due to instructors and due to 
 We will also use random effects to model the variation due to departments and due to possible department-to-department variation in the service-course effect.
 (Technically this study is more of a census of departments than a random sample but random effects are often used when the number of levels of the factor is moderate, to help stabilize the computation.)
 
-The model formula is chosen to illustrate certain aspects of the conversion from formula to representation.
+The model formula is chosen to illustrate certain aspects of the conversion from a model formula to the internal model representation.
 In particular, we choose independent random effects for `dept` and for `service` by `dept` to show that distinct terms with the same grouping factor will be amalgamated in the internal representation.
 
 ```{julia}
@@ -539,7 +539,7 @@ Notice that, in the formula, the random effects term for instructor, `(1|d)`, oc
 In the model the `s` term occurs first because the number of random effects from that term, 2972, is greater than that from `d`, 1128.
 Also the two terms for `dept` are amalgamated into a single term in the model.
 
-The optimization of the profiled objective required about 175 evaluations of the objective function and took about a second on a laptop computer, as shown in this benchmark using the `@be` macro from the {{< pkg Chairmarks.jl >}} package.
+The optimization of the profiled objective required about 175 evaluations of the objective function and took about one and a half seconds on a laptop computer, as shown in this benchmark using the `@be` macro from the {{< pkg Chairmarks.jl >}} package.
 
 ```{julia}
 @be fit($MixedModel, $form, $dat; progress=false)  seconds=8
@@ -597,6 +597,7 @@ This is the case for all of the blocks except the [2,2] block, which is diagonal
 
 As described in @bates.maechler.etal:2015[Section 3] the relative covariance factor, $\mbfLambda_\theta$ is block diagonal with the same blocking structure as the random effects parts of $\mbfA$ or $\mbfL$.
 The $i$th diagonal block, $i=1,\dots,k$, consists of $q_i$ repetitions on the diagonal of a $\ell_i\times\ell_i$ lower-triangular template matrix $\mbfT_i$.
+The last diagonal block, corresponding to the fixed-effects and response, is the $(p+1)\times(p+1)$ identity matrix.
 
 For a scalar random effects term (i.e. $\ell_i=1$) its block in $\mbfLambda_\theta$ is a multiple of the $q_i\times q_i$ identity matrix.
 The blocks of $\mbfLambda_\theta$ are never instantiated in the {{< pkg MixedModels.jl >}} implementation. There is sufficient flexibility in the multiple dispatch model in {{< proglang Julia >}} that pre-multiplication by $\mbfLambda_\theta^\top$ or post-multiplication by $\mbfLambda_\theta$ can be performed from the template matrices $\mbfT_i, i=1,\dots,k$ and the `refs` property of the grouping factor alone.
@@ -616,11 +617,11 @@ m1.lambda
 ## The Rectangular Full Packed (RFP) format {#sec-RFP}
 
 The diagonal blocks of $\mbfA$ generated by random-effects terms are either diagonal, for scalar random effects, or block diagonal, consisting of $\ell_i$ small blocks of size $p_i\times p_i$, for vector-valued random effects.
-As described in @sec-one-one-block, the diagonal or block-diagonal structure of the $[1,1]$ of $\mbfA$ carries over to the $[1,1]$ block of $\mbfL$.
-However, with more than one grouping factor in a non-nested design, the diagonal blocks of $\mbfL$ below the $[1,1]$ block get ``filled-in", with non-zeros in most or all of the lower triangle.
-Allocating a $q_i\times q_i$ array for the i'th diagonal block but only using the lower triangle is fine for small $q_i$ but becomes expensive when the number of levels of the i'th grouping factor is large.
+As described in @sec-one-one-block, the diagonal or block-diagonal structure of the $[1,1]$ block of $\mbfA$ carries over to the $[1,1]$ block of $\mbfL$.
+However, with more than one grouping factor in a non-nested design, the diagonal blocks of $\mbfL$ below the $[1,1]$ block get ``filled-in" with non-zeros in most or all of the lower triangle.
+Allocating a $q_i\times q_i$ array for the i'th diagonal block of $\mbfL$ but only using the lower triangle is fine for small $q_i$ but becomes expensive when the number of levels of the i'th grouping factor is large.
 
-The rectangular full-packed (RFP) storage format [@lawn199], designated `TrRFP` in @tbl-blk_descrip, allows for a triangular matrix to be packed into (roughly) half the amount of storage required for the dense square matrix.
+The rectangular full-packed (RFP) storage format [@lawn199] for triangular or symmetric/Hermitian matrices, designated `TrRFP` in @tbl-blk_descrip, allows for a triangular matrix to be packed into (roughly) half the amount of storage required for the dense square matrix.
 For the $[2,2]$ block in @tbl-blk_descrip, a dense square matrix of size $1128\times 1128$ requires about 9.71 MB of storage whereas the RFP format, which is stored in a rectangular array of size $1129\times 564$ requires about 4.86 MB.
 
 The {{< pkg RectangularFullPacked.jl >}} package allows access to this format in {{< proglang Julia >}}.
@@ -629,22 +630,44 @@ Full expanation of all forms of RFP storage requires considerable detail, for wh
 For an even $n$ the number of rows in the backing array is $n + 1$ and the columns of this "trapezoidal" part of the original array are shifted down by one row.
 The triangular part from the lower right of the original array is transposed and stored in the upper right corner of the backing array.
 
-The details are not as important as the fact that 3/4 of the original triangular array (the trapezoidal part) is stored essentially the same way as it would be in full triangular storage and only 1/4 of the original array requires customized access methods.
+The details are not as important as the fact that 3/4 of the original triangular array (the trapezoidal part from the first $n/2$ columns) is stored essentially the same way as it would be in full triangular storage and only 1/4 of the original array requires customized access methods.
 
 
 The LAPACK implementation of the Cholesky factorization for the RFP format (`dpftrf`) is nearly as fast as the Cholesky factorization for a dense square matrix (`dpotrf`).
 However, the blocked Cholesky factorization requires several operations to evaluate the matrix to be passed to LAPACK's dense Cholesky factorization.
 The most expensive of these occurs after $\mbfL[2,1]$ and the diagonal matrix $\mbfLambda_2^\top\mbfA[2,2]\mbfLambda_2+\mbfI$ have been evaluated (in the storage for $\mbfL[2,2]$).
-It is described as a "symmetric rank-k update" and involves replacing the current $\mbfL[2,2]$ by $\mbfL[2,2]-\mbfL[2,1]\mbfL[2,1]^\top$.
+It is described as a "symmetric rank-k update" and involves replacing the current $\mbfL[2,2]$ by $\mbfL[2,2]-\mbfL[2,1]\mbfL[2,1]^\top$ (because of the negative sign in that expression this is actually a "downdate").
 
 In practical examples, $\mbfL[2,1]$ is sparse and the update is performed by iterating over columns of $\mbfL[2,1]$.
 Each pair of nonzeros in each column of $\mbfL[2,1]$ generates a (scalar) update of one of the elements of $\mbfL[2,2]$ and this is where the more expensive indexing system in the RFP formulation (relative to storing a square dense matrix) takes its toll.
 The number of updates done to the triangular part of the RFP representation of $\mbfL[2,2]$ versus the trapezoidal part depends on ordering of the levels of the second grouping factor.
-If we order these levels by decreasing incidence then usually a substantial majority of the updates occur in the trapezoidal part, with Cartesian or linear indexing, as opposed to the triangular part with a more complicated indexing scheme.
+If we order these levels by decreasing incidence then usually a substantial majority of the updates occur in the trapezoidal part, using Cartesian or linear indexing, as opposed to the triangular part with a more complicated indexing scheme.
 
-This re-ordering of the levels of the second grouping factor is a heuristic and, in our experience, a successful heuristic.
+This re-ordering of the levels of the second grouping factor is a heuristic but, in our experience, a successful heuristic for reducing the time to perform the downdate operation.
 
 Two arguments to the `fit` method for a linear mixed model, `RFPthreshold`, which defaults to 1000, and `sortlevels`, which defaults to `true`, control whether RFP storage will be used for a dense triangular block of $\mbfL$ and whether the levels of the corresponding grouping factor will be sorted by descreasing incidence.
+
+We can fit the `insteval` model with triangular storage for $\mbfL[2,2]$ as
+
+```{julia}
+#| tbl-cap: Block Structure of the `A` and `L` matrices in the full storage `insteval` example
+#| label: tbl-blk_descrip_f
+#| tbl-cap-location: top
+m1f = fit(MixedModel, form, dat; RFPthreshold=1500, progress=false);
+BlockDescription(m1f)
+```
+\noindent
+for which evaluation of the objective takes
+
+```{julia}
+@be objective!($m1f, $(m1f.optsum.final))
+``` 
+
+That is, evaluation of the objective is slightly faster with the full square storage of $\mbfL[2,2]$, compared to the RFP storage, but at the expense of more memory usage
+
+```{julia}
+(Base.summarysize(m1), Base.summarysize(m1f))
+```
 
 ## Special role of the [1,1] block {#sec-one-one-block}
 
@@ -987,13 +1010,13 @@ draw(
 )
 ```
 
-@fig-l22prop shows the dominance of the `L[2,2]` block, which is a dense lower triangular matrix, in the overall memory footprint of the model.
-When all the movies are included in the data to which the model is fit the total memory footprint is over 50 GiB, and over 90% of that memory is for `L[2,2]`.
-Even when requiring a minimum of 80 ratings per movie, `L[2,2]` accounts for about 40% of the memory footprint.
+@fig-l22prop shows the dominance of the `L[2,2]` block, which is a dense lower triangular matrix (in RFP format), in the overall memory footprint of the model.
+When all the movies are included in the data to which the model is fit the total memory footprint is over 30 GiB, and over 80% of that memory is for `L[2,2]`.
+Even when requiring a minimum of 80 ratings per movie, `L[2,2]` accounts for about 35% of the memory footprint.
 
 ```{julia}
 #| echo: false
-#| fig-cap: Proportion of memory footprint of the model in L[2,2] versus the overall model size (GiB).  The dots are at different movie cutoff (mc) values, with the largest memory footprints at mc=1 and the smallest at mc=50.
+#| fig-cap: Proportion of memory footprint of the model in L[2,2] versus the overall model size (GiB).  The dots are at different movie cutoff (mc) values, with the largest memory footprints at mc=2 and the smallest at mc=50.
 #| label: fig-l22prop
 #| warning: false
 draw(
@@ -1015,8 +1038,7 @@ The matrix is about 98% zeros or, equivalently, a little over 2% nonzeros, which
 Also, the number and positions of the non-zeros in `L[2,1]` is exactly the same as those in `A[2,1]`.
 That is, there is no fill-in in the `[2,1]` block
 
-In a sense this is good news because the amount of storage required for the `[2,2]` block can be nearly cut in half by taking advantage of the fact that it is a triangular matrix.
-See @sec-RFP for further discussion on one approach using the *rectangular full packed format* [@lawn199].
+The fact that the memory footprint of the model is dominated by that of the `[2,2]` block makes the use of the RFP format for that block effective in reducing memory usage.
 
 In general, for models with scalar random effects for two incompletely crossed grouping factors, the memory footprint depends strongly on the smaller of the number of levels of the grouping factors, less strongly on the larger number of levels, and almost not at all on the number of observations.
 
@@ -1049,18 +1071,10 @@ draw(
 )
 ```
 
-### A[2,1] as a biadjacency matrix {#sec-biadjacency}
 
-In both of the examples we have considered, the first and second random-effects terms are simple scalar terms and each observation corresponds to a unique combination of levels of these two factors.
-For example, in the `movielens` data each rating corresponds to a unique combination of a user and a movie.
+# Further Comments and directions for research {#sec-further-comments}
 
-In cases like these, the $\mbfA[2,1]$ matrix is the biadjacency matrix for a bipartite graph $(U,V,E)$ where the nodes $U$ are the individual users, the nodes $V$ are the individual movies and the edges, $E$, link a movie to a user who rated it.
-The total number of edges in the bipartite graph is $n$, the number of observations in the data set.
-Furthermore, the diagonal elements in the diagonal matrices $\mbfA[1,1]$ and $\mbfA[2,2]$ are the degrees of the vertices $U$ and $V$, respectively.
-They are also the column- and row-sums of $\mbfA[2,1]$.
-It may be possible to derive new computational approaches from these relationships using graph theory, an avenue  we hope to explore in future research.
-
-# Further Comments {#sec-further-comments}
+## REML estimation {#sec-REML}
 
 Throughout the discussion we have considered maximum likelihood estimation, which is the default estimation criterion.
 However, it is also possible to fit mixed models using the restricted maximum likelihood (REML) criterion by setting the optional argument `REML=true` in the call to the `fit` function.
@@ -1069,13 +1083,7 @@ The REML estimates provide less biased estimates of variance components.
 For more details see [see @bates.maechler.etal:2015, Section 3.4].
 For instance:
 ```{julia}
-mreml = fit(
-  MixedModel,
-  @formula(y ~ 1 + service + (1 | d) + (1 | s) + (1 | dept) + (0 + service|dept)),
-  dat,
-  REML = true,
-  progress=false
-)
+mreml = fit(MixedModel, form, dat; REML=true, progress=false);
 print(mreml)
 ```
 \noindent
@@ -1093,6 +1101,17 @@ probmod = fit(MixedModel, frm, dt, Bernoulli(), ProbitLink())
 \noindent
 where `frm` is a formula and `dt` is a dataset.
 Refer to the {{< pkg MixedModels.jl >}} documentation for more details.
+
+## A[2,1] as a biadjacency matrix {#sec-biadjacency}
+
+In both of the examples we have considered, the first and second random-effects terms are simple scalar terms and each observation corresponds to a unique combination of levels of these two factors.
+For example, in the `movielens` data each rating corresponds to a unique combination of a user and a movie.
+
+In cases like these, the $\mbfA[2,1]$ matrix is the biadjacency matrix for a bipartite graph $(U,V,E)$ where the nodes $U$ are the individual users, the nodes $V$ are the individual movies and the edges, $E$, link a movie to a user who rated it.
+The total number of edges in the bipartite graph is $n$, the number of observations in the data set.
+Furthermore, the diagonal elements in the diagonal matrices $\mbfA[1,1]$ and $\mbfA[2,2]$ are the degrees of the vertices $U$ and $V$, respectively.
+They are also the column- and row-sums of $\mbfA[2,1]$.
+It may be possible to derive new computational approaches from these relationships using graph theory, an avenue  we hope to explore in future research.
 
 # Summary and discussion {#sec-summary}
 
