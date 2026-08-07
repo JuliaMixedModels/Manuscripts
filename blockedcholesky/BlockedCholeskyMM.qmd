@@ -1042,7 +1042,7 @@ The fact that the memory footprint of the model is dominated by that of the `[2,
 
 In general, for models with scalar random effects for two incompletely crossed grouping factors, the memory footprint depends strongly on the smaller of the number of levels of the grouping factors, less strongly on the larger number of levels, and almost not at all on the number of observations.
 
-### Speed of log-likelihood evaluation
+### Speed of log-likelihood evaluation {#sec-loglikelihoodeval}
 
 The time required to fit a model to large data sets is dominated by the time required to evaluate the log-likelihood during the optimization of the parameter estimates.
 The mean time per evaluation is given in the `mnevtm` column of @tbl-sizespeed.
@@ -1101,6 +1101,54 @@ probmod = fit(MixedModel, frm, dt, Bernoulli(), ProbitLink())
 \noindent
 where `frm` is a formula and `dt` is a dataset.
 Refer to the {{< pkg MixedModels.jl >}} documentation for more details.
+
+## Evaluation of the gradient of the profiled objective
+
+As mentioned in @sec-profiled, the profiled log-likelihood is an affine function of the logarithms of the diagonal elements of the blocked Cholesky factor, $\mbfL_{\mbftheta}$.
+The detailed derivation of the profiled REML criterion in @bates.maechler.etal:2015 shows that it too is an affine function of the logarithms of the diagonal elements of $\mbfL_{\mbftheta}$.
+For the purposes of evaluating the gradient of the profiled log-likelihood or the profiled REML criterion we must only consider the part of the objective that is a linear combination of the logarithms of the diagonal elements of $\mbfL_{\mbftheta}$, which can be written as
+$$
+f(\mbftheta)=\sum_{j=1}^{q+p+1}w_j(2\log\ell_{jj}) ,
+$$ {#eq-linearcomb}
+\noindent
+where the weights, $w_j, j=1,\dots,q+p+1$ for the profiled log-likelihood are $1$ for $j=1,\dots,q$ (the random-effects rows), $0$ for $j=q+1,\dots,q+p$ (the fixed-effects rows), and $n$ for $j=q+p+1$ (the response row).
+As shown in @bates.maechler.etal:2015 the weights are $1$ for $j=1,\dots,(q+p)$ (both random- and fixed-effects rows) and $n-p$ for $j=q+p+1$ for the profiled REML criterion.
+
+### Symbolic differentiation of the Cholesky factor
+
+Following @murray2016, we use symbolic differentiation of the defining relationship
+$$
+\mbfOmega_\mbftheta=\mbfL_\mbftheta \mbfL_\mbftheta^\top
+$$ {#eq-Omegadef}
+\noindent
+to produce
+$$
+\dot{\mbfOmega}=\dot{\mbfL}\mbfL^\top+\mbfL\dot\mbfL^\top
+$$ {#eq-Ldot}
+\noindent
+where the dot indicates partial differentiation with respect to an element of $\mbftheta$
+(in this and subsequent equations we drop the subscript $\mbftheta$ on $\mbfOmega$ and $\mbfL$).
+
+Premultiplying @eq-Ldot by $\mbfL^{-\top}$ and postmultiplying by $\mbfL^{-1}$ produces
+$$
+\begin{split}
+  \mbfL^{-\top}\dot{\mbfOmega}\mbfL^{-1} & = \mbfL^{-\top}\dot{\mbfL} + \dot{\mbfL}^\top\mbfL^{-1} \\
+  & = \mbfL^{-\top}\dot{\mbfL} + \left(\mbfL^{-\top}\dot{\mbfL}\right)^\top
+\end{split}
+$$ {#eq-Ldotinv}
+
+We note that the $j$th diagonal element of $\mbfL^{-1}\dot{\mbfOmega}\mbfL^{-\top}$ is exactly the partial derivative of $2\log\ell_{jj}$.
+Thus the terms in the gradient of the profiled objective are
+$$
+\frac{\partial f}{\partial\theta_i}=\tr\left(\mbfW\mbfL^{-1}\frac{\partial\mbfOmega}{\partial\theta_i}\mbfL^{-\top}\right)=\tr\left(\mbfL^{-1}\mbfW\mbfL^{-\top}\frac{\partial\mbfOmega}{\partial\theta_i}\right)\quad i=1,\dots,r 
+$$ {#eq-traceeval}
+where $r$ is the dimension of $\mbftheta$ and $\mbfW$ is a diagonal matrix of the weights in $f$.
+
+In the final expression of @eq-traceeval, which was suggested by Antropic's Claude-fable AI, the evaluation of $\mbfL^{-1}\mbfW\mbfL^{-\top}$ only needs to be evaluated once at a given value of $\mbftheta$.
+That is, it does not depend upon $i=1,\dots,r$.
+Thus the cost of evaluating this expression can be amortized over all the elements of the gradient.
+
+Preliminary investigations show that gradient evaluations are most effective in reducing the effort to optimize the objective when the dimension of $\mbftheta$ is moderate to large.
 
 ## A[2,1] as a biadjacency matrix {#sec-biadjacency}
 
