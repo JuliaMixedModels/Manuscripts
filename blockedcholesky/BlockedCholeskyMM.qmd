@@ -1129,11 +1129,11 @@ $$ {#eq-Ldot}
 where the dot indicates partial differentiation with respect to an element of $\mbftheta$
 (in this and subsequent equations we drop the subscript $\mbftheta$ on $\mbfOmega$ and $\mbfL$).
 
-Premultiplying @eq-Ldot by $\mbfL^{-\top}$ and postmultiplying by $\mbfL^{-1}$ produces
+Premultiplying @eq-Ldot by $\mbfL^{-1}$ and postmultiplying by $\mbfL^{-\top}$ produces
 $$
 \begin{split}
-  \mbfL^{-\top}\dot{\mbfOmega}\mbfL^{-1} & = \mbfL^{-\top}\dot{\mbfL} + \dot{\mbfL}^\top\mbfL^{-1} \\
-  & = \mbfL^{-\top}\dot{\mbfL} + \left(\mbfL^{-\top}\dot{\mbfL}\right)^\top
+  \mbfL^{-1}\dot{\mbfOmega}\mbfL^{-\top} & = \mbfL^{-1}\dot{\mbfL} + \dot{\mbfL}^\top\mbfL^{-\top} \\
+  & = \mbfL^{-1}\dot{\mbfL} + \left(\mbfL^{-1}\dot{\mbfL}\right)^\top
 \end{split}
 $$ {#eq-Ldotinv}
 
