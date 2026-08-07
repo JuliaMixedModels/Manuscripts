@@ -1106,7 +1106,7 @@ Refer to the {{< pkg MixedModels.jl >}} documentation for more details.
 
 As mentioned in @sec-profiled, the profiled log-likelihood is an affine function of the logarithms of the diagonal elements of the blocked Cholesky factor, $\mbfL_{\mbftheta}$.
 The detailed derivation of the profiled REML criterion in @bates.maechler.etal:2015 shows that it too is an affine function of the logarithms of the diagonal elements of $\mbfL_{\mbftheta}$.
-For the purposes of evaluating the gradient of the profiled log-likelihood or the profiled REML criterion we must only consider the part of the objective that is a linear combination of the logarithms of the diagonal elements of $\mbfL_{\mbftheta}$, which can be written as
+For the purposes of evaluating the gradient of the profiled log-likelihood or the profiled REML criterion we only must consider the part of the objective that is a linear combination of the logarithms of the diagonal elements of $\mbfL_{\mbftheta}$, which can be written as
 $$
 f(\mbftheta)=\sum_{j=1}^{q+p+1}w_j(2\log\ell_{jj}) ,
 $$ {#eq-linearcomb}
@@ -1131,20 +1131,20 @@ where the dot indicates partial differentiation with respect to an element of $\
 
 Premultiplying @eq-Ldot by $\mbfL^{-1}$ and postmultiplying by $\mbfL^{-\top}$ produces
 $$
-\begin{split}
-  \mbfL^{-1}\dot{\mbfOmega}\mbfL^{-\top} & = \mbfL^{-1}\dot{\mbfL} + \dot{\mbfL}^\top\mbfL^{-\top} \\
-  & = \mbfL^{-1}\dot{\mbfL} + \left(\mbfL^{-1}\dot{\mbfL}\right)^\top
-\end{split}
+\mbfL^{-1}\dot{\mbfOmega}\mbfL^{-\top} = \mbfL^{-1}\dot{\mbfL} + \dot{\mbfL}^\top\mbfL^{-\top}
+= \mbfL^{-1}\dot{\mbfL} + \left(\mbfL^{-1}\dot{\mbfL}\right)^\top\,.
 $$ {#eq-Ldotinv}
-
-We note that the $j$th diagonal element of $\mbfL^{-1}\dot{\mbfOmega}\mbfL^{-\top}$ is exactly the partial derivative of $2\log\ell_{jj}$.
+\noindent
+Because $\mbfL$, $\dot{\mbfL}$, and $\mbfL^{-1}$ are all lower triangular, $\mbfL^{-1}\dot{\mbfL}$ is also lower triangular and the $j$th diagonal element of $\mbfL^{-1}\dot{\mbfOmega}\mbfL^{-\top}$ is exactly the partial derivative of $2\log\ell_{jj}$.
 Thus the terms in the gradient of the profiled objective are
 $$
-\frac{\partial f}{\partial\theta_i}=\tr\left(\mbfW\mbfL^{-1}\frac{\partial\mbfOmega}{\partial\theta_i}\mbfL^{-\top}\right)=\tr\left(\mbfL^{-1}\mbfW\mbfL^{-\top}\frac{\partial\mbfOmega}{\partial\theta_i}\right)\quad i=1,\dots,r 
+\frac{\partial f}{\partial\theta_i}=
+\tr\left(\mbfW\mbfL^{-1}\frac{\partial\mbfOmega}{\partial\theta_i}\mbfL^{-\top}\right)=
+\tr\left(\mbfL^{-\top}\mbfW\mbfL^{-1}\frac{\partial\mbfOmega}{\partial\theta_i}\right)\quad i=1,\dots,r 
 $$ {#eq-traceeval}
 where $r$ is the dimension of $\mbftheta$ and $\mbfW$ is a diagonal matrix of the weights in $f$.
 
-In the final expression of @eq-traceeval, which was suggested by Antropic's Claude-fable AI, the evaluation of $\mbfL^{-1}\mbfW\mbfL^{-\top}$ only needs to be evaluated once at a given value of $\mbftheta$.
+In the final expression of @eq-traceeval, which was suggested by Antropic's Claude-fable AI, the symmetric matrix $\mbfL^{-\top}\mbfW\mbfL^{-1}$ only needs to be evaluated once for a given value of $\mbftheta$.
 That is, it does not depend upon $i=1,\dots,r$.
 Thus the cost of evaluating this expression can be amortized over all the elements of the gradient.
 
