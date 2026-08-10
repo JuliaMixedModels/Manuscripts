@@ -60,3 +60,4 @@ blockedcholesky/BlockedCholeskyMM+jss.pdf
 **/*.fls
 **/*.log
 **/*.synctex.gz
+*\~
