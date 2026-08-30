@@ -4,7 +4,7 @@
 ## Steps
 
 - Install the current Julia release version according to the instructions at https://julialang.org/downloads
-- Install (or update) [`quarto`](https://quarto.org/) version 1.9.0 or greater
+- Install (or update) [`quarto`](https://quarto.org/) version 1.10.0 or later
 - Install `jupyter-cache` using the instructions from the quarto Julia docs [here](https://quarto.org/docs/computations/julia.html#jupyter-cache).
 - Install the `JuliaMono` font, see instructions at: https://juliamono.netlify.app
 - Install the [`JDS extensions`](https://github.com/wenjie2wang/jds.qmd) for [`quarto`](https://quarto.org)

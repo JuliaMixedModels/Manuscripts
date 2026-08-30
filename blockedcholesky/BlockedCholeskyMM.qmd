@@ -33,7 +33,7 @@ format:
   jds-html: default
 classoption:
   - letterpaper
-#  - review
+  - review
 author:
   - first: Douglas
     first-init: D.
@@ -1067,7 +1067,7 @@ draw(
     :mnevtm => "Time for one evaluation of objective (s)",
     color = :uc => renamer([20 => "≥20 ratings", 40 => "≥40 ratings", 80 => "≥80 ratings"])  => "per user",) *
     visual(ScatterLines);
-    legend = (; position = :bottom, titleposition = :left),
+    legend = (; position = :bottom, titleposition = :left,)
 )
 ```
 

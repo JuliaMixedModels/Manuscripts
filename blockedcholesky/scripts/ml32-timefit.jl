@@ -1,4 +1,4 @@
-using Arrow, CSV, DataFrames, MixedModels
+using Arrow, CSV, DataFrames, MixedModels, MKL
 
 function timefit(
     mc::Integer,
@@ -24,6 +24,7 @@ function timefit(
     modelsz = Float32(Base.summarysize(model) / (2^30))  # size in GiB
     L22sz = Float32(Base.summarysize(model.L[3]) / (2^30))
     @info mc, uc, nratings, nusers, nmvie, modelsz, L22sz
+    flush(stdout)
     fittime = Float32(@elapsed fit!(model; progress=isinteractive()))
     nv = Int8(length(model.optsum.fitlog))
     mnevtm = fittime / nv
@@ -44,11 +45,12 @@ function mktbl()
         fittime::Float32,
         mnevtm::Float32,
     }[]
-    for mc in Int8.([10, 15, 20, 50])
+    for mc in Int8.([1, 2, 5, 10, 15, 20, 50])
         for uc in Int8.([20, 40, 80])
             try
                 sizespeedrow = timefit(mc, uc, ratings)
                 @info sizespeedrow
+                flush(stdout)
                 push!(res, sizespeedrow)
             catch e
             finally
