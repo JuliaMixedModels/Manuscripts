@@ -6,6 +6,10 @@
     \usepackage{bm}
     \usepackage[scale=0.8]{FiraMono}
     \usepackage{amsmath}
+    \usepackage{pifont}
+    \usepackage{newunicodechar}
+    \newunicodechar{✓}{\ding{51}}
+    \newunicodechar{✗}{\ding{55}}
     \newcommand\mbfZ{{\mathbf{Z}}}
     \newcommand\mbfA{{\mathbf{A}}}
     \newcommand\mbfI{{\mathbf{I}}}
@@ -14,6 +18,7 @@
     \newcommand\mbfR{{\mathbf{R}}}
     \newcommand\mbfS{{\mathbf{S}}}
     \newcommand\mbfT{{\mathbf{T}}}
+    \newcommand\mbfW{{\mathbf{W}}}
     \newcommand\mbfX{{\mathbf{X}}}
     \newcommand\mbfb{{\mathbf{b}}}
     \newcommand\mbft{{\mathbf{t}}}
@@ -39,13 +44,35 @@
     % linebreak added here to correct for https://github.com/JuliaLang/LinearAlgebra.jl/pull/1306
     \DeclareUnicodeCharacter{2514}{\linebreak{}$\llcorner$} % └
     \DeclareUnicodeCharacter{2303}{\^}
+    \DeclareMathOperator{\tr}{tr}
 \else
     \usepackage{fontspec}
+    \usepackage{bm}
     \setmonofont{JuliaMono}
-    \newcommand\mcN{{\mathbfcal{N}}}
-    \newcommand\mcB{{\mathbfcal{B}}}
-    \newcommand\mcU{{\mathbfcal{U}}}
-    \newcommand\mcY{{\mathbfcal{Y}}}
+    \newcommand\mbfZ{{\mathbf{Z}}}
+    \newcommand\mbfA{{\mathbf{A}}}
+    \newcommand\mbfI{{\mathbf{I}}}
+    \newcommand\mbfL{{\mathbf{L}}}
+    \newcommand\mbfO{{\mathbf{O}}}
+    \newcommand\mbfR{{\mathbf{R}}}
+    \newcommand\mbfS{{\mathbf{S}}}
+    \newcommand\mbfT{{\mathbf{T}}}
+    \newcommand\mbfX{{\mathbf{X}}}
+    \newcommand\mbfb{{\mathbf{b}}}
+    \newcommand\mbft{{\mathbf{t}}}
+    \newcommand\mbfu{{\mathbf{u}}}
+    \newcommand\mbfv{{\mathbf{v}}}
+    \newcommand\mbfy{{\mathbf{y}}}
+    \newcommand\mcN{\bm{\mathcal{N}}}
+    \newcommand\mcB{\bm{\mathcal{B}}}
+    \newcommand\mcU{\bm{\mathcal{U}}}
+    \newcommand\mcY{\bm{\mathcal{Y}}}
+    \newcommand\mbfLambda{{\bm{\Lambda}}}
+    \newcommand\mbfOmega{{\bm{\Omega}}}
+    \newcommand\mbfSigma{{\bm{\Sigma}}}
+    \newcommand\mbfbeta{{\bm{\beta}}}
+    \newcommand\mbftheta{{\bm{\theta}}}
+
     \usepackage{newunicodechar}
     % linebreak added here to correct for https://github.com/JuliaLang/LinearAlgebra.jl/pull/1306
     \newunicodechar{└}{\\└}

@@ -1,0 +1,203 @@
+%% Custom Pandoc template for Journal of Data Science (jdsart.cls)
+%% This template is used instead of Quarto's default because jdsart.cls
+%% has its own frontmatter structure for title, authors, and affiliations.
+
+\documentclass[$for(classoption)$$classoption$$sep$,$endfor$]{jdsart}
+
+%% ----- JDS article metadata -----
+$if(firstpage)$
+\setcounter{page}{$firstpage$}
+$else$
+\setcounter{page}{1}
+$endif$
+$if(month)$
+\pubmonth{$month$}
+$else$
+\pubmonth{}
+$endif$
+$if(year)$
+\pubyear{$year$}
+$else$
+\pubyear{20xx}
+$endif$
+$if(volume)$
+\volume{$volume$}
+$else$
+\volume{xx}
+$endif$
+$if(issue)$
+\issue{$issue$}
+$else$
+\issue{xx}
+$endif$
+$if(doi)$
+\doi{$doi$}
+$else$
+\doi{10.6339/xx-JDSxxxx}
+$endif$
+$if(received)$\received{$received$}$endif$
+$if(revised)$\revised{$revised$}$endif$
+$if(accepted)$\accepted{$accepted$}$endif$
+$if(publishedonline)$\publishedonline{$publishedonline$}$endif$
+
+%% ----- Syntax highlighting -----
+$if(highlighting-macros)$
+$highlighting-macros$
+$endif$
+
+%% ----- Core packages -----
+%% Note: jdsart.cls already loads fontenc, textcomp, graphicx, xcolor,
+%%       natbib, hyperref, geometry, and fancyhdr.
+$if(pdftex)$
+\usepackage[utf8]{inputenc}
+$endif$
+
+\providecommand{\tightlist}{%
+  \setlength{\itemsep}{0pt}\setlength{\parskip}{0pt}}
+
+$if(strikeout)$
+\usepackage[normalem]{ulem}
+$endif$
+
+%% ----- Graphics scaling (Quarto convention) -----
+$if(graphics)$
+\makeatletter
+\def\maxwidth{\ifdim\Gin@nat@width>\linewidth\linewidth\else\Gin@nat@width\fi}
+\def\maxheight{\ifdim\Gin@nat@height>\textheight\textheight\else\Gin@nat@height\fi}
+\setkeys{Gin}{width=\maxwidth,height=\maxheight,keepaspectratio}
+\newsavebox\pandoc@box
+\newcommand*\pandocbounded[1]{% scales image to fit in text height/width
+  \sbox\pandoc@box{#1}%
+  \Gscale@div\@tempa{\textheight}{\dimexpr\ht\pandoc@box+\dp\pandoc@box\relax}%
+  \Gscale@div\@tempb{\linewidth}{\wd\pandoc@box}%
+  \ifdim\@tempb\p@<\@tempa\p@\let\@tempa\@tempb\fi%
+  \ifdim\@tempa\p@<\p@\scalebox{\@tempa}{\usebox\pandoc@box}%
+  \else\usebox{\pandoc@box}%
+  \fi%
+}
+\makeatother
+$endif$
+
+%% ----- Table support -----
+$if(tables)$
+\usepackage{longtable,booktabs,array}
+$if(multirow)$
+\usepackage{multirow}
+$endif$
+\usepackage{calc}
+\usepackage{footnote}
+\makesavenoteenv{longtable}
+$endif$
+
+%% ----- CSL references (non-natbib fallback) -----
+$if(csl-refs)$
+\newlength{\cslhangindent}
+\setlength{\cslhangindent}{1.5em}
+\newlength{\csllabelwidth}
+\setlength{\csllabelwidth}{3em}
+\newenvironment{CSLReferences}[2]
+ {\begin{list}{}%
+   {\setlength{\itemindent}{0pt}
+    \setlength{\leftmargin}{0pt}
+    \ifnum#1>0
+      \setlength{\leftmargin}{\cslhangindent}
+      \setlength{\itemindent}{-1\cslhangindent}
+    \fi
+    \setlength{\parsep}{\parskip}
+    \setlength{\itemsep}{#2\baselineskip}}}
+ {\end{list}}
+$endif$
+
+%% ----- Header includes from YAML -----
+$for(header-includes)$
+$header-includes$
+$endfor$
+
+%% Reset Quarto's default ruled float style for code listings
+\makeatletter
+\@ifundefined{c@codelisting}{}{\floatstyle{plain}\restylefloat{codelisting}}
+\makeatother
+
+%% ----- User preamble from YAML -----
+$if(preamble)$
+$preamble$
+$endif$
+
+%% ===== Document begins =====
+\begin{document}
+\begin{frontmatter}
+
+$if(pretitle)$
+\pretitle{$pretitle$}
+$endif$
+
+\title{$title$}
+$if(short-title)$\runtitle{$short-title$}$endif$
+
+$for(author)$
+\author[$author.marker$]{%
+  \inits{$author.first-init$}%
+  \fnms{$author.first$}%
+  \snm{$author.last$}%
+$if(author.footnote-id)$
+  \thanksref{$author.footnote-id$}%
+$endif$
+$if(author.email)$
+  \ead{$author.email$}%
+$endif$
+}
+$endfor$
+
+$for(footnote)$
+\thankstext[$if(footnote.type)$type=$footnote.type$,$endif$id=$footnote.id$]{$footnote.content$}
+$endfor$
+
+$for(affiliation)$
+\address[$affiliation.marker$]{%
+$if(affiliation.prefix)$$affiliation.prefix$, $endif$%
+  \institution{$affiliation.institution$}, \cny{$affiliation.country$}}
+$endfor$
+
+$if(abstract)$
+\begin{abstract}
+$abstract$
+\end{abstract}
+$endif$
+
+$if(keywords)$
+\begin{keywords}
+$for(keywords)$\kwd{$keywords$}$endfor$.
+\end{keywords}
+$endif$
+
+\end{frontmatter}
+
+$for(include-before)$
+$include-before$
+$endfor$
+
+$body$
+
+$if(natbib)$
+$if(bibliography)$
+$if(biblio-title)$
+\renewcommand\refname{$biblio-title$}
+$endif$
+$if(biblio-style)$
+\bibliographystyle{$biblio-style$}
+$else$
+\bibliographystyle{jds}
+$endif$
+\bibliography{$for(bibliography)$$bibliography$$sep$,$endfor$}
+$endif$
+$endif$
+
+$if(biblatex)$
+\printbibliography$if(biblio-title)$[title=$biblio-title$]$endif$
+$endif$
+
+$for(include-after)$
+$include-after$
+$endfor$
+
+\end{document}

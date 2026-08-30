@@ -1,0 +1,27 @@
+title: Journal of Data Science
+author: Wenjie Wang and Jun Yan
+version: 0.1.1
+quarto-required: ">= 1.4.0"
+contributes:
+  formats:
+    common:
+      shortcodes:
+        - shortcodes.lua
+    pdf:
+      documentclass: jdsart
+      classoption:
+        - letterpaper
+        - inpress
+      template: template.tex
+      cite-method: natbib
+      biblio-style: jds
+      biblio-config: false
+      fig-width: 6.5
+      fig-height: 4.5
+      format-resources:
+        - jdsart.cls
+        - jds.bst
+    html:
+      number-sections: true
+      toc: true
+      csl: apa.csl
